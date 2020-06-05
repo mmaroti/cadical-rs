@@ -3,5 +3,9 @@ name = "cadical-rs"
 version = "0.0.1"
 authors = ["Miklos Maroti <mmaroti@gmail.com>"]
 edition = "2018"
+links = "cadicalc"
 
 [dependencies]
+
+[build-dependencies]
+cc = { version = "1.0", features = ["parallel"] }
