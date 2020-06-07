@@ -68,6 +68,7 @@ fn main() -> Result<()> {
         .cpp(true)
         .warnings(true)
         .define("NBUILD", None)
+        .define("NUNLOCKED", None)
         .files(files.iter())
         .compile("ccadical");
     Ok(())
