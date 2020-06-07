@@ -1,11 +1,8 @@
 use std::io::Result;
 
 fn main() -> Result<()> {
-    // let version = std::fs::read_to_string("cadical/VERSION")?;
-
     let files = [
         "cadical/src/ccadical.cpp",
-        "src/ccadical_ext.cpp",
         "cadical/src/version.cpp",
         "cadical/src/solver.cpp",
         "cadical/src/internal.cpp",
@@ -62,13 +59,20 @@ fn main() -> Result<()> {
         "cadical/src/instantiate.cpp",
         "cadical/src/bins.cpp",
         "cadical/src/compact.cpp",
+        "cadical/src/contract.cpp",
+        "cadical/src/util.cpp",
     ];
+
+    let version = std::fs::read_to_string("cadical/VERSION")?;
+    let version = format!("\"{}\"", version.trim());
 
     cc::Build::new()
         .cpp(true)
+        .flag("-std=c++11")
         .warnings(true)
         .define("NBUILD", None)
         .define("NUNLOCKED", None)
+        .define("VERSION", version.as_ref())
         .files(files.iter())
         .compile("ccadical");
     Ok(())

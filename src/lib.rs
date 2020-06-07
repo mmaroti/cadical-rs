@@ -8,7 +8,6 @@ extern "C" {
     fn ccadical_init() -> *mut c_void;
     fn ccadical_release(ptr: *mut c_void);
     fn ccadical_add(ptr: *mut c_void, lit: c_int);
-    fn ccadical_vars(ptr: *mut c_void) -> c_int;
     fn ccadical_assume(ptr: *mut c_void, lit: c_int);
     fn ccadical_solve(ptr: *mut c_void) -> c_int;
     fn ccadical_val(ptr: *mut c_void, lit: c_int) -> c_int;
@@ -31,13 +30,13 @@ extern "C" fn terminate_cb(flag: *const c_void) -> c_int {
 }
 
 /// The CaDiCaL incremental SAT solver.
-pub struct CaDiCaL {
+pub struct Solver {
     ptr: *mut c_void,
     state: Option<bool>,
     terminate: Option<Arc<AtomicBool>>,
 }
 
-impl CaDiCaL {
+impl Solver {
     /// Returns the name and version of the CaDiCaL library.
     pub fn signature() -> &'static str {
         let s = unsafe { CStr::from_ptr(ccadical_signature()) };
@@ -47,7 +46,7 @@ impl CaDiCaL {
     /// Constructs a new solver instance.
     pub fn new() -> Self {
         let ptr = unsafe { ccadical_init() };
-        CaDiCaL {
+        Self {
             ptr,
             state: None,
             terminate: None,
@@ -70,11 +69,6 @@ impl CaDiCaL {
         }
         unsafe { ccadical_add(self.ptr, 0) };
         self.state = None;
-    }
-
-    /// Returns the number of variables added so far.
-    pub fn num_vars(&self) -> i32 {
-        unsafe { ccadical_vars(self.ptr) }
     }
 
     /// Solves the formula defined by the added clauses. If the formula is
@@ -147,7 +141,7 @@ impl CaDiCaL {
 
     /// Returns a flag that can be set asynchronously to terminate the solver
     /// at any time. If this flag is set, then it should be cleared before
-    /// `solve` is called again, otherwise it will terminate immediatelly.
+    /// `solve` is called again, otherwise it will terminate immediately.
     pub fn terminate_flag(&mut self) -> Arc<AtomicBool> {
         if self.terminate.is_none() {
             self.terminate = Some(Arc::new(AtomicBool::new(false)));
@@ -159,13 +153,13 @@ impl CaDiCaL {
     }
 }
 
-impl Default for CaDiCaL {
+impl Default for Solver {
     fn default() -> Self {
-        CaDiCaL::new()
+        Solver::new()
     }
 }
 
-impl Drop for CaDiCaL {
+impl Drop for Solver {
     fn drop(&mut self) {
         unsafe { ccadical_release(self.ptr) };
     }
@@ -179,11 +173,9 @@ mod tests {
 
     #[test]
     fn solver() {
-        assert!(CaDiCaL::signature().starts_with("cadical-"));
-        let mut sat = CaDiCaL::new();
-        assert_eq!(sat.num_vars(), 0);
+        assert!(Solver::signature().starts_with("cadical-"));
+        let mut sat = Solver::new();
         sat.add_clause([1, 2].iter().copied());
-        assert_eq!(sat.num_vars(), 2);
         assert_eq!(sat.solve(), Some(true));
         assert_eq!(sat.solve_with([-1].iter().copied()), Some(true));
         assert_eq!(sat.value(1), Some(false));
@@ -194,11 +186,10 @@ mod tests {
         assert_eq!(sat.solve_with([-1, -2].iter().copied()), Some(false));
         assert_eq!(sat.failed(-1), true);
         assert_eq!(sat.failed(-2), true);
-        assert_eq!(sat.num_vars(), 2);
     }
 
-    fn pigeon_hole(num: i32) -> CaDiCaL {
-        let mut sat = CaDiCaL::new();
+    fn pigeon_hole(num: i32) -> Solver {
+        let mut sat = Solver::new();
         for i in 0..(num + 1) {
             sat.add_clause((0..num).map(|j| 1 + i * num + j));
         }
