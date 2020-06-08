@@ -1,3 +1,10 @@
+//! This is a stand alone crate that contains both the C++ source code of the
+//! CaDiCaL incremental SAT solver together with its Rust binding. This crate
+//! is statically links with the compiled CaDiCaL solver library and works on 
+//! Linux, Apple and Windows. CaDiCaL won first place in the SAT track of the 
+//! SAT Race 2019 and second overall place. It was written by Armin Biere, and 
+//! it is available under the MIT license.
+
 use std::ffi::CStr;
 use std::os::raw::{c_char, c_int, c_void};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -17,7 +24,6 @@ extern "C" {
         flag: *const c_void,
         cb: extern "C" fn(*const c_void) -> c_int,
     );
-    fn ccadical_print_statistics(ptr: *mut c_void);
 }
 
 extern "C" fn terminate_cb(flag: *const c_void) -> c_int {
@@ -148,11 +154,6 @@ impl Solver {
         }
         self.terminate.as_mut().unwrap().clone()
     }
-
-    /// Prints out statistics about the solver.
-    pub fn print_statistics(&mut self) {
-        unsafe { ccadical_print_statistics(self.ptr) };
-    }
 }
 
 impl Default for Solver {
@@ -221,6 +222,5 @@ mod tests {
         });
         assert_eq!(sat.solve(), None);
         assert_eq!(sat.terminate_flag().load(Ordering::Relaxed), true);
-        sat.print_statistics();
     }
 }

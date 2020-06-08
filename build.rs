@@ -1,6 +1,22 @@
-use std::io::Result;
+fn main() -> std::io::Result<()> {
+    let mut build = cc::Build::new();
+    build
+        .cpp(true)
+        .flag_if_supported("-std=c++11")
+        .warnings(true)
+        .define("NBUILD", None)
+        .define("NUNLOCKED", None)
+        .define("NTRACING", None)
+        .define("QUIET", None);
 
-fn main() -> Result<()> {
+    let version = std::fs::read_to_string("cadical/VERSION")?;
+    let version = format!("\"{}\"", version.trim());
+    build.define("VERSION", version.as_ref());
+
+    if std::env::var("DEBUG").unwrap() == "false" {
+        build.define("NDEBUG", None);
+    }
+
     let files = [
         "src/resources.cpp",
         "cadical/src/ccadical.cpp",
@@ -68,21 +84,11 @@ fn main() -> Result<()> {
         "cadical/src/parse.cpp",
         "cadical/src/format.cpp",
     ];
+    build.files(files.iter());
+    for &file in files.iter() {
+        println!("cargo:rerun-if-changed={}", file);
+    }
 
-    let version = std::fs::read_to_string("cadical/VERSION")?;
-    let version = format!("\"{}\"", version.trim());
-
-    cc::Build::new()
-        .cpp(true)
-        .flag("-std=c++11")
-        .warnings(true)
-        .define("NBUILD", None)
-        .define("VERSION", version.as_ref())
-//        .define("NDEBUG", None)
-        .define("NUNLOCKED", None)
-        .define("NTRACING", None)
-//        .define("QUIET", None)
-        .files(files.iter())
-        .compile("ccadical");
+    build.compile("ccadical");
     Ok(())
 }

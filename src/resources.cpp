@@ -29,4 +29,8 @@ uint64_t current_resident_set_size () {
   return 0;
 }
 
+uint64_t maximum_resident_set_size () {
+  return 0;
+}
+
 }
