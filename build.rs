@@ -61,6 +61,12 @@ fn main() -> Result<()> {
         "cadical/src/compact.cpp",
         "cadical/src/contract.cpp",
         "cadical/src/util.cpp",
+        "cadical/src/lookahead.cpp",
+        "cadical/src/config.cpp",
+        "cadical/src/file.cpp",
+        "cadical/src/tracer.cpp",
+        "cadical/src/parse.cpp",
+        "cadical/src/format.cpp",
     ];
 
     let version = std::fs::read_to_string("cadical/VERSION")?;
