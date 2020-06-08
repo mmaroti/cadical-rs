@@ -71,6 +71,7 @@ fn main() -> Result<()> {
         .flag("-std=c++11")
         .warnings(true)
         .define("NBUILD", None)
+        .define("NDEBUG", None)
         .define("VERSION", version.as_ref())
         .define("NUNLOCKED", None)
         .define("NTRACING", None)
