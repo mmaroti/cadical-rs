@@ -2,6 +2,7 @@ use std::io::Result;
 
 fn main() -> Result<()> {
     let files = [
+        "src/resources.cpp",
         "cadical/src/ccadical.cpp",
         "cadical/src/version.cpp",
         "cadical/src/solver.cpp",
@@ -12,7 +13,6 @@ fn main() -> Result<()> {
         "cadical/src/options.cpp",
         "cadical/src/stats.cpp",
         "cadical/src/message.cpp",
-        "cadical/src/resources.cpp",
         "cadical/src/external.cpp",
         "cadical/src/profile.cpp",
         "cadical/src/terminal.cpp",
@@ -71,8 +71,10 @@ fn main() -> Result<()> {
         .flag("-std=c++11")
         .warnings(true)
         .define("NBUILD", None)
-        .define("NUNLOCKED", None)
         .define("VERSION", version.as_ref())
+        .define("NUNLOCKED", None)
+        .define("NTRACING", None)
+        .define("QUIET", None)
         .files(files.iter())
         .compile("ccadical");
     Ok(())
