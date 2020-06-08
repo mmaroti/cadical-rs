@@ -17,6 +17,7 @@ extern "C" {
         flag: *const c_void,
         cb: extern "C" fn(*const c_void) -> c_int,
     );
+    fn ccadical_print_statistics(ptr: *mut c_void);
 }
 
 extern "C" fn terminate_cb(flag: *const c_void) -> c_int {
@@ -57,13 +58,11 @@ impl Solver {
     /// integers, positive literals are positive ones. All literals must be
     /// non-zero and different from `i32::MIN`.
     #[inline]
-    pub fn add_clause<I, L>(&mut self, clause: I)
+    pub fn add_clause<I>(&mut self, clause: I)
     where
-        I: Iterator<Item = L>,
-        L: Into<i32>,
+        I: Iterator<Item = i32>,
     {
         for lit in clause {
-            let lit: i32 = lit.into();
             debug_assert!(lit != 0 && lit != i32::MIN);
             unsafe { ccadical_add(self.ptr, lit) };
         }
@@ -89,13 +88,11 @@ impl Solver {
 
     /// Solves the formula defined by the set of clauses under the given
     /// assumptions.
-    pub fn solve_with<I, L>(&mut self, assume: I) -> Option<bool>
+    pub fn solve_with<I>(&mut self, assumptions: I) -> Option<bool>
     where
-        I: Iterator<Item = L>,
-        L: Into<i32>,
+        I: Iterator<Item = i32>,
     {
-        for lit in assume.into_iter() {
-            let lit: i32 = lit.into();
+        for lit in assumptions {
             debug_assert!(lit != 0 && lit != i32::MIN);
             unsafe { ccadical_assume(self.ptr, lit) };
         }
@@ -150,6 +147,11 @@ impl Solver {
             unsafe { ccadical_set_terminate(self.ptr, flag, terminate_cb) };
         }
         self.terminate.as_mut().unwrap().clone()
+    }
+
+    /// Prints out statistics about the solver.
+    pub fn print_statistics(&mut self) {
+        unsafe { ccadical_print_statistics(self.ptr) };
     }
 }
 
@@ -219,5 +221,6 @@ mod tests {
         });
         assert_eq!(sat.solve(), None);
         assert_eq!(sat.terminate_flag().load(Ordering::Relaxed), true);
+        sat.print_statistics();
     }
 }

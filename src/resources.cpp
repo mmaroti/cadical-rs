@@ -25,4 +25,8 @@ double Internal::process_time () {
   return absolute_process_time () - stats.time.process;
 }
 
+uint64_t current_resident_set_size () {
+  return 0;
+}
+
 }
