@@ -8,8 +8,7 @@
 
 use std::ffi::CStr;
 use std::os::raw::{c_char, c_int, c_void};
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
+use std::ptr::null_mut;
 use std::time::Instant;
 
 extern "C" {
@@ -23,15 +22,9 @@ extern "C" {
     fn ccadical_failed(ptr: *mut c_void, lit: c_int) -> c_int;
     fn ccadical_set_terminate(
         ptr: *mut c_void,
-        timeout: *const c_void,
-        cb: Option<extern "C" fn(*const c_void) -> c_int>,
+        data: *mut c_void,
+        cb: Option<extern "C" fn(*mut c_void) -> c_int>,
     );
-}
-
-extern "C" fn terminator_cb(timeout: *const c_void) -> c_int {
-    let timeout = timeout as *const Timeout;
-    let timeout = unsafe { &*timeout };
-    (timeout.started.elapsed().as_secs() >= timeout.get()) as c_int
 }
 
 /// The CaDiCaL incremental SAT solver. The literals are unwrapped positive
@@ -39,34 +32,34 @@ extern "C" fn terminator_cb(timeout: *const c_void) -> c_int {
 /// operations are presented in a safe Rust interface.
 /// # Examples
 /// ```
-/// let mut sat = cadical::Solver::new();
+/// let mut sat: cadical::Solver = Default::default();
 /// sat.add_clause([1, 2].iter().copied());
 /// assert_eq!(sat.solve_with([-1].iter().copied()), Some(true));
 /// assert_eq!(sat.value(1), Some(false));
 /// assert_eq!(sat.value(2), Some(true));
 /// ```
 
-pub struct Solver {
+pub struct Solver<C: Callbacks = Timeout> {
     ptr: *mut c_void,
     state: Option<bool>,
-    timeout: Option<Arc<Timeout>>,
+    cb: Option<Box<C>>,
 }
 
-impl Solver {
-    /// Returns the name and version of the CaDiCaL library.
-    pub fn signature() -> &'static str {
-        let s = unsafe { CStr::from_ptr(ccadical_signature()) };
-        s.to_str().unwrap_or("invalid")
-    }
-
+impl<C: Callbacks> Solver<C> {
     /// Constructs a new solver instance.
     pub fn new() -> Self {
         let ptr = unsafe { ccadical_init() };
         Self {
             ptr,
             state: None,
-            timeout: None,
+            cb: None,
         }
+    }
+
+    /// Returns the name and version of the CaDiCaL library.
+    pub fn signature(&self) -> &'static str {
+        let s = unsafe { CStr::from_ptr(ccadical_signature()) };
+        s.to_str().unwrap_or("invalid")
     }
 
     /// Adds the given clause to the solver. Negated literals are negative
@@ -90,12 +83,8 @@ impl Solver {
     /// unsatisfiable, then `Some(false)` is returned. If the solver runs out
     /// of resources or was terminated, then `None` is returned.
     pub fn solve(&mut self) -> Option<bool> {
-        if self.timeout.is_some() {
-            let timeout = self.timeout.as_mut().unwrap();
-            let timeout = &timeout.as_ref().started;
-            let timeout = timeout as *const Instant as *mut Instant;
-            let timeout = unsafe { &mut *timeout };
-            *timeout = Instant::now();
+        if let Some(cb) = &mut self.cb {
+            cb.as_mut().started();
         }
 
         let r = unsafe { ccadical_solve(self.ptr) };
@@ -159,66 +148,98 @@ impl Solver {
         val == 1
     }
 
-    /// Returns a flag that can be set asynchronously to terminate the solver
-    /// at any time.
-    pub fn timeout(&mut self) -> Arc<Timeout> {
-        if self.timeout.is_none() {
-            self.timeout = Some(Arc::new(Timeout {
-                started: Instant::now(),
-                timeout: AtomicU64::new(u64::MAX),
-            }));
-            let data = self.timeout.as_ref().unwrap().as_ref();
-            let data = data as *const Timeout as *const c_void;
+    /// Sets the callbacks to be called while the solver is running.
+    /// # Examples
+    /// ```
+    /// let mut sat: cadical::Solver<cadical::Timeout> = Default::default();
+    /// sat.add_clause([1, 2].iter().copied());
+    /// sat.set_callbacks(Some(cadical::Timeout::new(0.0)));
+    /// assert_eq!(sat.solve(), None);
+    /// ```
+    pub fn set_callbacks(&mut self, cb: Option<C>) {
+        if let Some(cb) = cb {
+            if let Some(data) = &mut self.cb {
+                *data.as_mut() = cb;
+            } else {
+                self.cb = Some(Box::new(cb));
+                let data = self.cb.as_mut().unwrap();
+                let data = data.as_mut() as *mut C as *mut c_void;
+                unsafe {
+                    ccadical_set_terminate(self.ptr, data, Some(Self::terminate_cb));
+                }
+            }
+        } else {
+            self.cb = None;
+            let data = null_mut() as *mut c_void;
             unsafe {
-                ccadical_set_terminate(self.ptr, data, Some(terminator_cb));
+                ccadical_set_terminate(self.ptr, data, None);
             }
         }
-        self.timeout.clone().unwrap()
+    }
+
+    extern "C" fn terminate_cb(data: *mut c_void) -> c_int {
+        let cb = unsafe { &mut *(data as *mut C) };
+        cb.terminate() as c_int
     }
 }
 
-impl Default for Solver {
+impl<C: Callbacks> Default for Solver<C> {
     fn default() -> Self {
         Solver::new()
     }
 }
 
-impl Drop for Solver {
+impl<C: Callbacks> Drop for Solver<C> {
     fn drop(&mut self) {
         unsafe { ccadical_release(self.ptr) };
     }
 }
 
-/// The timeout of the solver in seconds. Setting the timeout to zero while
-/// the solver is running will terminate the solver before it has solved
-/// the problem.
+/// Callbacks trait for finer control.
+pub trait Callbacks {
+    /// Called when the `solve` method is called.
+    fn started(&mut self);
+
+    /// Called by the solver periodically to check if it should terminate.
+    fn terminate(&mut self) -> bool;
+}
+
+/// Callbacks implementing a simple timeout.
 pub struct Timeout {
-    started: Instant,
-    timeout: AtomicU64,
+    pub started: Instant,
+    pub timeout: f32,
 }
 
 impl Timeout {
-    /// Asynchronously sets the timeout of the solver in seconds.
-    pub fn set(&self, secs: u64) {
-        self.timeout.store(secs, Ordering::Relaxed);
+    /// Creates a new timeout structure with the given timeout value.
+    pub fn new(timeout: f32) -> Self {
+        Timeout {
+            started: Instant::now(),
+            timeout,
+        }
+    }
+}
+
+impl Callbacks for Timeout {
+    #[inline(always)]
+    fn started(&mut self) {
+        self.started = Instant::now();
     }
 
-    /// Returns the timeout of the solver in seconds.
-    pub fn get(&self) -> u64 {
-        self.timeout.load(Ordering::Relaxed)
+    #[inline(always)]
+    fn terminate(&mut self) -> bool {
+        self.started.elapsed().as_secs_f32() >= self.timeout
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::thread;
-    use std::time::Duration;
 
     #[test]
     fn solver() {
-        assert!(Solver::signature().starts_with("cadical-"));
-        let mut sat = Solver::new();
+        let mut sat: Solver = Solver::new();
+        assert!(sat.signature().starts_with("cadical-"));
         sat.add_clause([1, 2].iter().copied());
         assert_eq!(sat.solve(), Some(true));
         assert_eq!(sat.solve_with([-1].iter().copied()), Some(true));
@@ -238,7 +259,7 @@ mod tests {
     }
 
     fn pigeon_hole(num: i32) -> Solver {
-        let mut sat = Solver::new();
+        let mut sat: Solver = Solver::new();
         for i in 0..(num + 1) {
             sat.add_clause((0..num).map(|j| 1 + i * num + j));
         }
@@ -259,21 +280,20 @@ mod tests {
 
     #[test]
     fn terminate() {
-        let mut sat = pigeon_hole(10);
+        let mut sat = pigeon_hole(9);
         let started = Instant::now();
-        let timeout = sat.timeout();
-        thread::spawn(move || {
-            thread::sleep(Duration::from_millis(500));
-            timeout.set(0);
-        });
+        sat.set_callbacks(Some(Timeout::new(0.5)));
         assert_eq!(sat.solve(), None);
         let elapsed = started.elapsed().as_secs_f32();
         assert!(0.4 < elapsed && elapsed < 0.6);
 
         let started = Instant::now();
-        sat.timeout().set(1);
+        sat.set_callbacks(Some(Timeout::new(1.0)));
         assert_eq!(sat.solve(), None);
         let elapsed = started.elapsed().as_secs_f32();
         assert!(0.9 < elapsed && elapsed < 1.1);
+
+        sat.set_callbacks(None);
+        assert_eq!(sat.solve(), Some(false));
     }
 }

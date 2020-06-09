@@ -1,5 +1,9 @@
 CaDiCaL SAT solver
 ==================
+[![Build Status](https://travis-ci.org/mmaroti/cadical.svg?branch=master)](https://travis-ci.org/mmaroti/cadical)
+[![Crate](https://img.shields.io/crates/v/cadical)](https://crates.io/crates/cadical)
+[![Documentation](https://docs.rs/cadical/badge.svg)](https://docs.rs/cadical)
+[![GitHub](https://img.shields.io/github/license/mmaroti/cadical)](LICENSE)
 
 This is a stand alone crate that contains both the C++ source code of the
 CaDiCaL incremental SAT solver together with its Rust binding. The C++
@@ -15,7 +19,7 @@ DIMACS format. The common IPASIR operations are presented in a safe Rust
 interface.
 
 ```
-let mut sat = cadical::Solver::new();
+let mut sat: cadical::Solver = Default::default();
 sat.add_clause([1, 2].iter().copied());
 assert_eq!(sat.solve_with([-1].iter().copied()), Some(true));
 assert_eq!(sat.value(1), Some(false));
