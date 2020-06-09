@@ -16,6 +16,13 @@ matrix:
     - env: TARGET=x86_64-unknown-linux-gnu
       rust: nightly
     - env: TARGET=i686-unknown-linux-gnu
+    - env: TARGET=aarch64-linux-android
+    - env: TARGET=aarch64-apple-ios
+    - env: TARGET=aarch64-unknown-linux-gnu
+    - env: TARGET=x86_64-unknown-netbsd
+    - env: TARGET=x86_64-unknown-freebsd
+    - env: TARGET=armv7-unknown-linux-gnueabihf
+    - env: TARGET=x86_64-unknown-linux-musl
 
 before_install:
   - rustup self update

@@ -227,20 +227,24 @@ unsafe impl<C: Callbacks + Sync> Sync for Solver<C> {}
 /// Callbacks trait for finer control.
 pub trait Callbacks {
     /// Called when the `solve` method is called.
+    #[inline(always)]
     fn started(&mut self) {}
 
     /// Called by the solver periodically to check if it should terminate.
+    #[inline(always)]
     fn terminate(&mut self) -> bool {
         false
     }
 
     /// Returns the maximum length of clauses to be passed to `learn`.
+    #[inline(always)]
     fn max_length() -> i32 {
         0
     }
 
     /// Called by the solver when a new derived clause is learnt.
     #[allow(unused_variables)]
+    #[inline(always)]
     fn learn(&mut self, clause: &[i32]) {}
 }
 
