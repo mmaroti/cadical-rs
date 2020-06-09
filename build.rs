@@ -13,10 +13,10 @@ fn main() -> std::io::Result<()> {
     let version = format!("\"{}\"", version.trim());
     build.define("VERSION", version.as_ref());
 
-    // There seems to be a bug in mode testing during probing, 
+    // There seems to be a bug in mode testing during probing,
     // so disable asserts, see commit 6efb55e6cd74f58bf4d
     if true || std::env::var("DEBUG").unwrap() == "false" {
-        build.define("NDEBUG", None);
+        build.debug(false).define("NDEBUG", None);
     }
 
     let files = [
