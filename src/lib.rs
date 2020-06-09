@@ -7,8 +7,10 @@
 //! MIT license.
 
 use std::ffi::CStr;
+use std::mem::ManuallyDrop;
 use std::os::raw::{c_char, c_int, c_void};
 use std::ptr::null_mut;
+use std::slice;
 use std::time::Instant;
 
 extern "C" {
@@ -24,6 +26,12 @@ extern "C" {
         ptr: *mut c_void,
         data: *mut c_void,
         cb: Option<extern "C" fn(*mut c_void) -> c_int>,
+    );
+    fn ccadical_set_learn(
+        ptr: *mut c_void,
+        data: *mut c_void,
+        max_len: c_int,
+        cb: Option<extern "C" fn(*mut c_void, *const c_int)>,
     );
 }
 
@@ -121,7 +129,7 @@ impl<C: Callbacks> Solver<C> {
 
     /// Returns the value of the given literal in the last solution. The
     /// state of the solver must be `Some(true)`. The returned value is
-    /// `None` if the formula is satisfied regardless of the the value of the
+    /// `None` if the formula is satisfied regardless of the value of the
     /// literal.
     #[inline]
     pub fn value(&self, lit: i32) -> Option<bool> {
@@ -166,6 +174,8 @@ impl<C: Callbacks> Solver<C> {
                 let data = data.as_mut() as *mut C as *mut c_void;
                 unsafe {
                     ccadical_set_terminate(self.ptr, data, Some(Self::terminate_cb));
+                    let max_length = <C as Callbacks>::max_length();
+                    ccadical_set_learn(self.ptr, data, max_length, Some(Self::learn_cb));
                 }
             }
         } else {
@@ -173,13 +183,29 @@ impl<C: Callbacks> Solver<C> {
             let data = null_mut() as *mut c_void;
             unsafe {
                 ccadical_set_terminate(self.ptr, data, None);
+                ccadical_set_learn(self.ptr, data, 0, None);
             }
         }
     }
 
     extern "C" fn terminate_cb(data: *mut c_void) -> c_int {
+        debug_assert!(!data.is_null());
         let cb = unsafe { &mut *(data as *mut C) };
         cb.terminate() as c_int
+    }
+
+    extern "C" fn learn_cb(data: *mut c_void, clause: *const c_int) {
+        debug_assert!(!data.is_null() && !clause.is_null());
+
+        let mut len: isize = 0;
+        while unsafe { clause.offset(len).read() } != 0 {
+            len += 1;
+        }
+        let clause = unsafe { slice::from_raw_parts(clause, len as usize) };
+        let clause = ManuallyDrop::new(clause);
+
+        let cb = unsafe { &mut *(data as *mut C) };
+        cb.learn(&clause);
     }
 }
 
@@ -195,13 +221,27 @@ impl<C: Callbacks> Drop for Solver<C> {
     }
 }
 
+unsafe impl<C: Callbacks + Send> Send for Solver<C> {}
+unsafe impl<C: Callbacks + Sync> Sync for Solver<C> {}
+
 /// Callbacks trait for finer control.
 pub trait Callbacks {
     /// Called when the `solve` method is called.
-    fn started(&mut self);
+    fn started(&mut self) {}
 
     /// Called by the solver periodically to check if it should terminate.
-    fn terminate(&mut self) -> bool;
+    fn terminate(&mut self) -> bool {
+        false
+    }
+
+    /// Returns the maximum length of clauses to be passed to `learn`.
+    fn max_length() -> i32 {
+        0
+    }
+
+    /// Called by the solver when a new derived clause is learnt.
+    #[allow(unused_variables)]
+    fn learn(&mut self, clause: &[i32]) {}
 }
 
 /// Callbacks implementing a simple timeout.
@@ -235,6 +275,7 @@ impl Callbacks for Timeout {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::thread;
 
     #[test]
     fn solver() {
@@ -303,5 +344,14 @@ mod tests {
 
         sat.set_callbacks(None);
         assert_eq!(sat.solve(), Some(false));
+    }
+
+    #[test]
+    fn moving() {
+        let mut sat = pigeon_hole(5);
+        let id = thread::spawn(move || {
+            assert_eq!(sat.solve(), Some(false));
+        });
+        id.join().unwrap();
     }
 }
