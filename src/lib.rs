@@ -90,7 +90,7 @@ impl Solver {
     /// unsatisfiable, then `Some(false)` is returned. If the solver runs out
     /// of resources or was terminated, then `None` is returned.
     pub fn solve(&mut self) -> Option<bool> {
-        if false && self.timeout.is_some() {
+        if self.timeout.is_some() {
             let timeout = self.timeout.as_mut().unwrap();
             let timeout = &timeout.as_ref().started;
             let timeout = timeout as *const Instant as *mut Instant;
@@ -170,7 +170,6 @@ impl Solver {
             let data = self.timeout.as_ref().unwrap().as_ref();
             let data = data as *const Timeout as *const c_void;
             unsafe {
-                assert!(false);
                 ccadical_set_terminate(self.ptr, data, Some(terminator_cb));
             }
         }
@@ -199,9 +198,9 @@ pub struct Timeout {
 }
 
 impl Timeout {
-    /// Sets the timeout of the solver in seconds.
-    pub fn set(&self, val: u64) {
-        self.timeout.store(val, Ordering::Relaxed);
+    /// Asynchronously sets the timeout of the solver in seconds.
+    pub fn set(&self, secs: u64) {
+        self.timeout.store(secs, Ordering::Relaxed);
     }
 
     /// Returns the timeout of the solver in seconds.
@@ -261,15 +260,20 @@ mod tests {
     #[test]
     fn terminate() {
         let mut sat = pigeon_hole(10);
-        // let timeout = sat.timeout();
-        // thread::spawn(move || {
-        //    thread::sleep(Duration::from_millis(100));
-        //    // timeout.set(0);
-        // });
+        let started = Instant::now();
+        let timeout = sat.timeout();
+        thread::spawn(move || {
+            thread::sleep(Duration::from_millis(500));
+            timeout.set(0);
+        });
         assert_eq!(sat.solve(), None);
+        let elapsed = started.elapsed().as_secs_f32();
+        assert!(0.4 < elapsed && elapsed < 0.6);
 
-        // let mut sat = pigeon_hole(10);
-        // sat.timeout().set(10);
-        // assert_eq!(sat.solve(), Some(false));
+        let started = Instant::now();
+        sat.timeout().set(1);
+        assert_eq!(sat.solve(), None);
+        let elapsed = started.elapsed().as_secs_f32();
+        assert!(0.9 < elapsed && elapsed < 1.1);
     }
 }
