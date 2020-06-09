@@ -1,7 +1,7 @@
 //! This is a stand alone crate that contains both the C++ source code of the
 //! CaDiCaL incremental SAT solver together with its Rust binding. The C++
 //! files are compiled and statically linked during the build process. This
-//! crate works on Linux, Apple OSX, Windows, Android, iOS, Raspberry Pi, 
+//! crate works on Linux, Apple OSX, Windows, Android, iOS, Raspberry Pi,
 //! NetBSD and FreeBSD.
 //! CaDiCaL won first place in the SAT track of the SAT Race 2019 and second
 //! overall place. It was written by Armin Biere, and it is available under the
@@ -34,6 +34,9 @@ extern "C" {
         max_len: c_int,
         cb: Option<extern "C" fn(*mut c_void, *const c_int)>,
     );
+    fn ccadical_vars(ptr: *mut c_void) -> c_int;
+    fn ccadical_active(ptr: *mut c_void) -> i64;
+    fn ccadical_irredundant(ptr: *mut c_void) -> i64;
 }
 
 /// The CaDiCaL incremental SAT solver. The literals are unwrapped positive
@@ -160,7 +163,7 @@ impl<C: Callbacks> Solver<C> {
     /// Sets the callbacks to be called while the solver is running.
     /// # Examples
     /// ```
-    /// let mut sat: cadical::Solver<cadical::Timeout> = Default::default();
+    /// let mut sat: cadical::Solver = Default::default();
     /// sat.add_clause([1, 2].iter().copied());
     /// sat.set_callbacks(Some(cadical::Timeout::new(0.0)));
     /// assert_eq!(sat.solve(), None);
@@ -207,6 +210,36 @@ impl<C: Callbacks> Solver<C> {
 
         let cb = unsafe { &mut *(data as *mut C) };
         cb.learn(&clause);
+    }
+
+    /// Returns the maximum variable index in the problem as maintained by
+    /// the solver.
+    /// # Examples
+    /// ```
+    /// let mut sat: cadical::Solver = Default::default();
+    /// sat.add_clause([1, 3].iter().copied());
+    /// assert_eq!(sat.max_variable(), 3);
+    /// assert_eq!(sat.num_variables(), 2);
+    /// assert_eq!(sat.num_clauses(), 1);
+    /// ```
+    #[inline]
+    pub fn max_variable(&self) -> i32 {
+        unsafe { ccadical_vars(self.ptr) }
+    }
+
+    /// Returns the number of active variables in the problem. Variables become
+    /// active if a clause is added with it. They become inactive, if they
+    /// are eliminated or become fixed at the root level.
+    #[inline]
+    pub fn num_variables(&self) -> i32 {
+        unsafe { ccadical_active(self.ptr) as i32 }
+    }
+
+    /// Returns the number of active irredundant clauses. Clauses become
+    /// inactive if they are satisfied, subsumed or eliminated.
+    #[inline]
+    pub fn num_clauses(&self) -> usize {
+        unsafe { ccadical_irredundant(self.ptr) as usize }
     }
 }
 
@@ -288,6 +321,9 @@ mod tests {
         let mut sat: Solver = Solver::new();
         assert!(sat.signature().starts_with("cadical-"));
         sat.add_clause([1, 2].iter().copied());
+        assert_eq!(sat.max_variable(), 2);
+        assert_eq!(sat.num_variables(), 2);
+        assert_eq!(sat.num_clauses(), 1);
         assert_eq!(sat.solve(), Some(true));
         assert_eq!(sat.solve_with([-1].iter().copied()), Some(true));
         assert_eq!(sat.value(1), Some(false));
@@ -298,11 +334,14 @@ mod tests {
         assert_eq!(sat.solve_with([-1, -2].iter().copied()), Some(false));
         assert_eq!(sat.failed(-1), true);
         assert_eq!(sat.failed(-2), true);
-        sat.add_clause([3, 4].iter().copied());
-        assert_eq!(sat.solve_with([-1, -2, -3].iter().copied()), Some(false));
+        sat.add_clause([4, 5].iter().copied());
+        assert_eq!(sat.max_variable(), 5);
+        assert_eq!(sat.num_variables(), 4);
+        assert_eq!(sat.num_clauses(), 2);
+        assert_eq!(sat.solve_with([-1, -2, -4].iter().copied()), Some(false));
         assert_eq!(sat.failed(-1), true);
         assert_eq!(sat.failed(-2), true);
-        assert_eq!(sat.failed(-3), false);
+        assert_eq!(sat.failed(-4), false);
     }
 
     fn pigeon_hole(num: i32) -> Solver {

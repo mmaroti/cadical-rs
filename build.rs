@@ -21,7 +21,7 @@ fn main() -> std::io::Result<()> {
 
     let files = [
         "src/resources.cpp",
-        "cadical/src/ccadical.cpp",
+        "src/ccadical.cpp",
         "cadical/src/version.cpp",
         "cadical/src/solver.cpp",
         "cadical/src/internal.cpp",
