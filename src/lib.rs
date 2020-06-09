@@ -1,14 +1,16 @@
 //! This is a stand alone crate that contains both the C++ source code of the
-//! CaDiCaL incremental SAT solver together with its Rust binding. This crate
-//! is statically links with the compiled CaDiCaL solver library and works on 
-//! Linux, Apple and Windows. CaDiCaL won first place in the SAT track of the 
-//! SAT Race 2019 and second overall place. It was written by Armin Biere, and 
-//! it is available under the MIT license.
+//! CaDiCaL incremental SAT solver together with its Rust binding. The C++
+//! files are compiled and statically linked during the build process. This
+//! crate works on Linux, Apple and Windows.
+//! CaDiCaL won first place in the SAT track of the SAT Race 2019 and second
+//! overall place. It was written by Armin Biere, and it is available under the
+//! MIT license.
 
 use std::ffi::CStr;
 use std::os::raw::{c_char, c_int, c_void};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::time::Instant;
 
 extern "C" {
     fn ccadical_signature() -> *const c_char;
@@ -21,26 +23,33 @@ extern "C" {
     fn ccadical_failed(ptr: *mut c_void, lit: c_int) -> c_int;
     fn ccadical_set_terminate(
         ptr: *mut c_void,
-        flag: *const c_void,
-        cb: extern "C" fn(*const c_void) -> c_int,
+        timeout: *const c_void,
+        cb: Option<extern "C" fn(*const c_void) -> c_int>,
     );
 }
 
-extern "C" fn terminate_cb(flag: *const c_void) -> c_int {
-    let flag = flag as *const AtomicBool;
-    let flag = unsafe { &*flag };
-    if flag.load(Ordering::Relaxed) {
-        1
-    } else {
-        0
-    }
+extern "C" fn terminator_cb(timeout: *const c_void) -> c_int {
+    let timeout = timeout as *const Timeout;
+    let timeout = unsafe { &*timeout };
+    (timeout.started.elapsed().as_secs() >= timeout.get()) as c_int
 }
 
-/// The CaDiCaL incremental SAT solver.
+/// The CaDiCaL incremental SAT solver. The literals are unwrapped positive
+/// and negative integers, exactly as in the DIMACS format. The common IPASIR
+/// operations are presented in a safe Rust interface.
+/// # Examples
+/// ```
+/// let mut sat = cadical::Solver::new();
+/// sat.add_clause([1, 2].iter().copied());
+/// assert_eq!(sat.solve_with([-1].iter().copied()), Some(true));
+/// assert_eq!(sat.value(1), Some(false));
+/// assert_eq!(sat.value(2), Some(true));
+/// ```
+
 pub struct Solver {
     ptr: *mut c_void,
     state: Option<bool>,
-    terminate: Option<Arc<AtomicBool>>,
+    timeout: Option<Arc<Timeout>>,
 }
 
 impl Solver {
@@ -56,7 +65,7 @@ impl Solver {
         Self {
             ptr,
             state: None,
-            terminate: None,
+            timeout: None,
         }
     }
 
@@ -81,6 +90,14 @@ impl Solver {
     /// unsatisfiable, then `Some(false)` is returned. If the solver runs out
     /// of resources or was terminated, then `None` is returned.
     pub fn solve(&mut self) -> Option<bool> {
+        if false && self.timeout.is_some() {
+            let timeout = self.timeout.as_mut().unwrap();
+            let timeout = &timeout.as_ref().started;
+            let timeout = timeout as *const Instant as *mut Instant;
+            let timeout = unsafe { &mut *timeout };
+            *timeout = Instant::now();
+        }
+
         let r = unsafe { ccadical_solve(self.ptr) };
         self.state = if r == 10 {
             Some(true)
@@ -143,16 +160,21 @@ impl Solver {
     }
 
     /// Returns a flag that can be set asynchronously to terminate the solver
-    /// at any time. If this flag is set, then it should be cleared before
-    /// `solve` is called again, otherwise it will terminate immediately.
-    pub fn terminate_flag(&mut self) -> Arc<AtomicBool> {
-        if self.terminate.is_none() {
-            self.terminate = Some(Arc::new(AtomicBool::new(false)));
-            let flag = self.terminate.as_mut().unwrap();
-            let flag = flag.as_ref() as *const AtomicBool as *const c_void;
-            unsafe { ccadical_set_terminate(self.ptr, flag, terminate_cb) };
+    /// at any time.
+    pub fn timeout(&mut self) -> Arc<Timeout> {
+        if self.timeout.is_none() {
+            self.timeout = Some(Arc::new(Timeout {
+                started: Instant::now(),
+                timeout: AtomicU64::new(u64::MAX),
+            }));
+            let data = self.timeout.as_ref().unwrap().as_ref();
+            let data = data as *const Timeout as *const c_void;
+            unsafe {
+                assert!(false);
+                ccadical_set_terminate(self.ptr, data, Some(terminator_cb));
+            }
         }
-        self.terminate.as_mut().unwrap().clone()
+        self.timeout.clone().unwrap()
     }
 }
 
@@ -165,6 +187,26 @@ impl Default for Solver {
 impl Drop for Solver {
     fn drop(&mut self) {
         unsafe { ccadical_release(self.ptr) };
+    }
+}
+
+/// The timeout of the solver in seconds. Setting the timeout to zero while
+/// the solver is running will terminate the solver before it has solved
+/// the problem.
+pub struct Timeout {
+    started: Instant,
+    timeout: AtomicU64,
+}
+
+impl Timeout {
+    /// Sets the timeout of the solver in seconds.
+    pub fn set(&self, val: u64) {
+        self.timeout.store(val, Ordering::Relaxed);
+    }
+
+    /// Returns the timeout of the solver in seconds.
+    pub fn get(&self) -> u64 {
+        self.timeout.load(Ordering::Relaxed)
     }
 }
 
@@ -189,6 +231,11 @@ mod tests {
         assert_eq!(sat.solve_with([-1, -2].iter().copied()), Some(false));
         assert_eq!(sat.failed(-1), true);
         assert_eq!(sat.failed(-2), true);
+        sat.add_clause([3, 4].iter().copied());
+        assert_eq!(sat.solve_with([-1, -2, -3].iter().copied()), Some(false));
+        assert_eq!(sat.failed(-1), true);
+        assert_eq!(sat.failed(-2), true);
+        assert_eq!(sat.failed(-3), false);
     }
 
     fn pigeon_hole(num: i32) -> Solver {
@@ -214,13 +261,15 @@ mod tests {
     #[test]
     fn terminate() {
         let mut sat = pigeon_hole(10);
-        let flag = sat.terminate_flag();
-        assert_eq!(flag.load(Ordering::Relaxed), false);
-        thread::spawn(move || {
-            thread::sleep(Duration::from_millis(100));
-            flag.store(true, Ordering::Relaxed);
-        });
+        // let timeout = sat.timeout();
+        // thread::spawn(move || {
+        //    thread::sleep(Duration::from_millis(100));
+        //    // timeout.set(0);
+        // });
         assert_eq!(sat.solve(), None);
-        assert_eq!(sat.terminate_flag().load(Ordering::Relaxed), true);
+
+        // let mut sat = pigeon_hole(10);
+        // sat.timeout().set(10);
+        // assert_eq!(sat.solve(), Some(false));
     }
 }
