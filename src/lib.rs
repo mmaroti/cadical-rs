@@ -1,8 +1,8 @@
 //! This is a stand alone crate that contains both the C++ source code of the
 //! CaDiCaL incremental SAT solver together with its Rust binding. The C++
 //! files are compiled and statically linked during the build process. This
-//! crate compiles and works for Linux, Apple OSX, Windows, Android, iOS, 
-//! Raspberry Pi, NetBSD, and FreeBSD.
+//! crate works on Linux, Apple OSX, Windows, Android, iOS, Raspberry Pi, 
+//! NetBSD and FreeBSD.
 //! CaDiCaL won first place in the SAT track of the SAT Race 2019 and second
 //! overall place. It was written by Armin Biere, and it is available under the
 //! MIT license.
@@ -171,13 +171,13 @@ impl<C: Callbacks> Solver<C> {
                 *data.as_mut() = cb;
             } else {
                 self.cb = Some(Box::new(cb));
-                let data = self.cb.as_mut().unwrap();
-                let data = data.as_mut() as *mut C as *mut c_void;
-                unsafe {
-                    ccadical_set_terminate(self.ptr, data, Some(Self::terminate_cb));
-                    let max_length = <C as Callbacks>::max_length();
-                    ccadical_set_learn(self.ptr, data, max_length, Some(Self::learn_cb));
-                }
+            }
+            let data = self.cb.as_mut().unwrap();
+            let max_length = data.max_length();
+            let data = data.as_mut() as *mut C as *mut c_void;
+            unsafe {
+                ccadical_set_terminate(self.ptr, data, Some(Self::terminate_cb));
+                ccadical_set_learn(self.ptr, data, max_length, Some(Self::learn_cb));
             }
         } else {
             self.cb = None;
@@ -237,9 +237,10 @@ pub trait Callbacks {
         false
     }
 
-    /// Returns the maximum length of clauses to be passed to `learn`.
+    /// Returns the maximum length of clauses to be passed to `learn`. This
+    /// methods will be called only once when `set_callbacks` is called.
     #[inline(always)]
-    fn max_length() -> i32 {
+    fn max_length(&self) -> i32 {
         0
     }
 
