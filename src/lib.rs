@@ -282,16 +282,24 @@ mod tests {
     fn terminate() {
         let mut sat = pigeon_hole(9);
         let started = Instant::now();
-        sat.set_callbacks(Some(Timeout::new(0.5)));
-        assert_eq!(sat.solve(), None);
+        sat.set_callbacks(Some(Timeout::new(0.2)));
+        let result = sat.solve();
         let elapsed = started.elapsed().as_secs_f32();
-        assert!(0.4 < elapsed && elapsed < 0.6);
+        if result == None {
+            assert!(0.1 < elapsed && elapsed < 0.3);
+        } else {
+            assert!(result == Some(false) && elapsed <= 0.3);
+        }
 
         let started = Instant::now();
-        sat.set_callbacks(Some(Timeout::new(1.0)));
-        assert_eq!(sat.solve(), None);
+        sat.set_callbacks(Some(Timeout::new(0.5)));
+        let result = sat.solve();
         let elapsed = started.elapsed().as_secs_f32();
-        assert!(0.9 < elapsed && elapsed < 1.1);
+        if result == None {
+            assert!(0.4 < elapsed && elapsed < 0.6);
+        } else {
+            assert!(result == Some(false) && elapsed <= 0.6);
+        }
 
         sat.set_callbacks(None);
         assert_eq!(sat.solve(), Some(false));

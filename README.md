@@ -1,9 +1,9 @@
 CaDiCaL SAT solver
 ==================
-[![Build Status](https://travis-ci.org/mmaroti/cadical.svg?branch=master)](https://travis-ci.org/mmaroti/cadical)
+[![Build Status](https://travis-ci.org/mmaroti/cadical-rs.svg?branch=master)](https://travis-ci.org/mmaroti/cadical-rs)
 [![Crate](https://img.shields.io/crates/v/cadical)](https://crates.io/crates/cadical)
 [![Documentation](https://docs.rs/cadical/badge.svg)](https://docs.rs/cadical)
-[![GitHub](https://img.shields.io/github/license/mmaroti/cadical)](LICENSE)
+[![GitHub](https://img.shields.io/github/license/mmaroti/cadical-rs)](LICENSE)
 
 This is a stand alone crate that contains both the C++ source code of the
 CaDiCaL incremental SAT solver together with its Rust binding. The C++
