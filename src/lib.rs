@@ -12,8 +12,8 @@ use std::mem::ManuallyDrop;
 use std::os::raw::{c_char, c_int, c_void};
 use std::path::Path;
 use std::ptr::null_mut;
-use std::slice;
 use std::time::Instant;
+use std::{fmt, slice};
 
 extern "C" {
     fn ccadical_signature() -> *const c_char;
@@ -256,19 +256,19 @@ impl<C: Callbacks> Solver<C> {
     }
 
     /// Writes the problem in DIMACS format to the given file.
-    pub fn write_dimacs(&mut self, path: &Path) -> Result<(), Error> {
+    pub fn write_dimacs(&mut self, path: &Path) -> Result<(), DimacsError> {
         let path = make_cpath(path)?;
         let err = unsafe { ccadical_write_dimacs(self.ptr, path.as_ptr(), 0) };
         if err.is_null() {
             Ok(())
         } else {
             let err = unsafe { CStr::from_ptr(err) };
-            Err(Error::new(err.to_str().unwrap_or("invalid response")))
+            Err(DimacsError::new(err.to_str().unwrap_or("invalid response")))
         }
     }
 
     /// Reads a problem in DIMACS format from the given file.
-    pub fn from_dimacs(path: &Path) -> Result<Self, Error> {
+    pub fn from_dimacs(path: &Path) -> Result<Self, DimacsError> {
         let sat: Solver<C> = Default::default();
         let path = make_cpath(path)?;
         let mut vars: c_int = 0;
@@ -277,15 +277,16 @@ impl<C: Callbacks> Solver<C> {
         if err.is_null() {
             Ok(sat)
         } else {
+            // The returned string is freed once Solver is dropped!
             let err = unsafe { CStr::from_ptr(err) };
-            Err(Error::new(err.to_str().unwrap_or("invalid response")))
+            Err(DimacsError::new(err.to_str().unwrap_or("invalid response")))
         }
     }
 }
 
-fn make_cpath(path: &Path) -> Result<CString, Error> {
-    let path = path.to_str().ok_or(Error::new("invalid path name"))?;
-    CString::new(path).map_err(|_| Error::new("invalid path name"))
+fn make_cpath(path: &Path) -> Result<CString, DimacsError> {
+    let path = path.to_str().ok_or(DimacsError::new("invalid path name"))?;
+    CString::new(path).map_err(|_| DimacsError::new("invalid path name"))
 }
 
 impl<C: Callbacks> Default for Solver<C> {
@@ -358,15 +359,21 @@ impl Callbacks for Timeout {
 
 #[derive(Clone, Debug)]
 /// Error type for DIMACS reading amd writing.
-pub struct Error {
-    pub message: String,
+pub struct DimacsError {
+    pub msg: String,
 }
 
-impl Error {
-    pub fn new(message: &str) -> Self {
-        Error {
-            message: message.into(),
+impl DimacsError {
+    pub fn new(msg: &str) -> Self {
+        DimacsError {
+            msg: msg.to_string(),
         }
+    }
+}
+
+impl fmt::Display for DimacsError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.msg.fmt(f)
     }
 }
 
@@ -427,7 +434,7 @@ mod tests {
     }
 
     #[test]
-    fn terminate() {
+    fn timeout() {
         let mut sat = pigeon_hole(9);
         let started = Instant::now();
         sat.set_callbacks(Some(Timeout::new(0.2)));
@@ -468,12 +475,17 @@ mod tests {
         path.push("pigeon5.cnf");
 
         let mut sat = pigeon_hole(5);
-        println!("writing DIMACS to {:?}", path);
+        println!("writing DIMACS to: {:?}", path);
         assert!(sat.write_dimacs(&path).is_ok());
         assert!(path.is_file());
 
-        println!("reading DIMACS from {:?}", path);
+        println!("reading DIMACS from: {:?}", path);
         let mut sat: Solver = Solver::from_dimacs(&path).unwrap();
         assert_eq!(sat.solve(), Some(false));
+
+        let path = Path::new("MISSINGFILE");
+        let res: Result<Solver, DimacsError> = Solver::from_dimacs(path);
+        assert!(res.is_err());
+        println!("reading DIMACS error: {}", res.err().unwrap());
     }
 }
