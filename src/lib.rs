@@ -39,7 +39,7 @@ extern "C" {
     fn ccadical_vars(ptr: *mut c_void) -> c_int;
     fn ccadical_active(ptr: *mut c_void) -> i64;
     fn ccadical_irredundant(ptr: *mut c_void) -> i64;
-    fn _ccadical_read_dimacs(
+    fn ccadical_read_dimacs(
         ptr: *mut c_void,
         path: *const c_char,
         vars: *mut c_int,
@@ -266,6 +266,21 @@ impl<C: Callbacks> Solver<C> {
             Err(Error::new(err.to_str().unwrap_or("invalid response")))
         }
     }
+
+    /// Reads a problem in DIMACS format from the given file.
+    pub fn from_dimacs(path: &Path) -> Result<Self, Error> {
+        let sat: Solver<C> = Default::default();
+        let path = make_cpath(path)?;
+        let mut vars: c_int = 0;
+        let err =
+            unsafe { ccadical_read_dimacs(sat.ptr, path.as_ptr(), &mut vars as *mut c_int, 0) };
+        if err.is_null() {
+            Ok(sat)
+        } else {
+            let err = unsafe { CStr::from_ptr(err) };
+            Err(Error::new(err.to_str().unwrap_or("invalid response")))
+        }
+    }
 }
 
 fn make_cpath(path: &Path) -> Result<CString, Error> {
@@ -449,11 +464,16 @@ mod tests {
 
     #[test]
     fn fileio() {
-        let mut sat = pigeon_hole(5);
         let mut path = std::env::temp_dir();
         path.push("pigeon5.cnf");
+
+        let mut sat = pigeon_hole(5);
         println!("writing DIMACS to {:?}", path);
         assert!(sat.write_dimacs(&path).is_ok());
         assert!(path.is_file());
+
+        println!("reading DIMACS from {:?}", path);
+        let mut sat: Solver = Solver::from_dimacs(&path).unwrap();
+        assert_eq!(sat.solve(), Some(false));
     }
 }
