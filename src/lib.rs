@@ -7,9 +7,10 @@
 //! overall place. It was written by Armin Biere, and it is available under the
 //! MIT license.
 
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 use std::mem::ManuallyDrop;
 use std::os::raw::{c_char, c_int, c_void};
+use std::path::Path;
 use std::ptr::null_mut;
 use std::slice;
 use std::time::Instant;
@@ -38,6 +39,17 @@ extern "C" {
     fn ccadical_vars(ptr: *mut c_void) -> c_int;
     fn ccadical_active(ptr: *mut c_void) -> i64;
     fn ccadical_irredundant(ptr: *mut c_void) -> i64;
+    fn _ccadical_read_dimacs(
+        ptr: *mut c_void,
+        path: *const c_char,
+        vars: *mut c_int,
+        strict: c_int,
+    ) -> *const c_char;
+    fn ccadical_write_dimacs(
+        ptr: *mut c_void,
+        path: *const c_char,
+        min_max_var: c_int,
+    ) -> *const c_char;
 }
 
 /// The CaDiCaL incremental SAT solver. The literals are unwrapped positive
@@ -242,6 +254,23 @@ impl<C: Callbacks> Solver<C> {
     pub fn num_clauses(&self) -> usize {
         unsafe { ccadical_irredundant(self.ptr) as usize }
     }
+
+    /// Writes the problem in DIMACS format to the given file.
+    pub fn write_dimacs(&mut self, path: &Path) -> Result<(), Error> {
+        let path = make_cpath(path)?;
+        let err = unsafe { ccadical_write_dimacs(self.ptr, path.as_ptr(), 0) };
+        if err.is_null() {
+            Ok(())
+        } else {
+            let err = unsafe { CStr::from_ptr(err) };
+            Err(Error::new(err.to_str().unwrap_or("invalid response")))
+        }
+    }
+}
+
+fn make_cpath(path: &Path) -> Result<CString, Error> {
+    let path = path.to_str().ok_or(Error::new("invalid path name"))?;
+    CString::new(path).map_err(|_| Error::new("invalid path name"))
 }
 
 impl<C: Callbacks> Default for Solver<C> {
@@ -309,6 +338,20 @@ impl Callbacks for Timeout {
     #[inline(always)]
     fn terminate(&mut self) -> bool {
         self.started.elapsed().as_secs_f32() >= self.timeout
+    }
+}
+
+#[derive(Clone, Debug)]
+/// Error type for DIMACS reading amd writing.
+pub struct Error {
+    pub message: String,
+}
+
+impl Error {
+    pub fn new(message: &str) -> Self {
+        Error {
+            message: message.into(),
+        }
     }
 }
 
@@ -402,5 +445,15 @@ mod tests {
             assert_eq!(sat.solve(), Some(false));
         });
         id.join().unwrap();
+    }
+
+    #[test]
+    fn fileio() {
+        let mut sat = pigeon_hole(5);
+        let mut path = std::env::temp_dir();
+        path.push("pigeon5.cnf");
+        println!("writing DIMACS to {:?}", path);
+        assert!(sat.write_dimacs(&path).is_ok());
+        assert!(path.is_file());
     }
 }
