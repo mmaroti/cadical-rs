@@ -2,6 +2,10 @@
 
 extern "C" {
 
+int ccadical_status (CCaDiCaL * wrapper) {
+  return ((Wrapper*) wrapper)->solver->status ();
+}
+
 int ccadical_vars (CCaDiCaL * wrapper) {
   return ((Wrapper*) wrapper)->solver->vars ();
 }

@@ -26,14 +26,15 @@ extern "C" {
     fn ccadical_set_terminate(
         ptr: *mut c_void,
         data: *mut c_void,
-        cb: Option<extern "C" fn(*mut c_void) -> c_int>,
+        cbs: Option<extern "C" fn(*mut c_void) -> c_int>,
     );
     fn ccadical_set_learn(
         ptr: *mut c_void,
         data: *mut c_void,
         max_len: c_int,
-        cb: Option<extern "C" fn(*mut c_void, *const c_int)>,
+        cbs: Option<extern "C" fn(*mut c_void, *const c_int)>,
     );
+    fn ccadical_status(ptr: *mut c_void) -> c_int;
     fn ccadical_vars(ptr: *mut c_void) -> c_int;
     fn ccadical_active(ptr: *mut c_void) -> i64;
     fn ccadical_irredundant(ptr: *mut c_void) -> i64;
@@ -46,26 +47,21 @@ extern "C" {
 /// ```
 /// let mut sat: cadical::Solver = Default::default();
 /// sat.add_clause([1, 2].iter().copied());
-/// assert_eq!(sat.solve_with([-1].iter().copied()), Some(true));
-/// assert_eq!(sat.value(1), Some(false));
+/// sat.add_clause([-1, 2].iter().copied());
+/// assert_eq!(sat.solve(), Some(true));
 /// assert_eq!(sat.value(2), Some(true));
 /// ```
 
 pub struct Solver<C: Callbacks = Timeout> {
     ptr: *mut c_void,
-    state: Option<bool>,
-    cb: Option<Box<C>>,
+    cbs: Option<Box<C>>,
 }
 
 impl<C: Callbacks> Solver<C> {
     /// Constructs a new solver instance.
     pub fn new() -> Self {
         let ptr = unsafe { ccadical_init() };
-        Self {
-            ptr,
-            state: None,
-            cb: None,
-        }
+        Self { ptr, cbs: None }
     }
 
     /// Returns the name and version of the CaDiCaL library.
@@ -87,7 +83,6 @@ impl<C: Callbacks> Solver<C> {
             unsafe { ccadical_add(self.ptr, lit) };
         }
         unsafe { ccadical_add(self.ptr, 0) };
-        self.state = None;
     }
 
     /// Solves the formula defined by the added clauses. If the formula is
@@ -95,19 +90,18 @@ impl<C: Callbacks> Solver<C> {
     /// unsatisfiable, then `Some(false)` is returned. If the solver runs out
     /// of resources or was terminated, then `None` is returned.
     pub fn solve(&mut self) -> Option<bool> {
-        if let Some(cb) = &mut self.cb {
-            cb.as_mut().started();
+        if let Some(cbs) = &mut self.cbs {
+            cbs.as_mut().started();
         }
 
         let r = unsafe { ccadical_solve(self.ptr) };
-        self.state = if r == 10 {
+        if r == 10 {
             Some(true)
         } else if r == 20 {
             Some(false)
         } else {
             None
-        };
-        self.state
+        }
     }
 
     /// Solves the formula defined by the set of clauses under the given
@@ -123,12 +117,19 @@ impl<C: Callbacks> Solver<C> {
         self.solve()
     }
 
-    /// Returns the state of the solver as returned by the last call to
+    /// Returns the status of the solver as returned by the last call to
     /// `solve` or `solve_with`. The state becomes `None` if a new clause
     /// is added.
     #[inline]
-    pub fn state(&self) -> Option<bool> {
-        self.state
+    pub fn status(&self) -> Option<bool> {
+        let r = unsafe { ccadical_status(self.ptr) };
+        if r == 10 {
+            Some(true)
+        } else if r == 20 {
+            Some(false)
+        } else {
+            None
+        }
     }
 
     /// Returns the value of the given literal in the last solution. The
@@ -137,7 +138,7 @@ impl<C: Callbacks> Solver<C> {
     /// literal.
     #[inline]
     pub fn value(&self, lit: i32) -> Option<bool> {
-        debug_assert!(self.state == Some(true));
+        debug_assert!(self.status() == Some(true));
         debug_assert!(lit != 0 && lit != i32::MIN);
         let val = unsafe { ccadical_val(self.ptr, lit) };
         if val == lit {
@@ -154,7 +155,7 @@ impl<C: Callbacks> Solver<C> {
     /// solver must be `Some(false)`.
     #[inline]
     pub fn failed(&self, lit: i32) -> bool {
-        debug_assert!(self.state == Some(false));
+        debug_assert!(self.status() == Some(false));
         debug_assert!(lit != 0 && lit != i32::MIN);
         let val = unsafe { ccadical_failed(self.ptr, lit) };
         val == 1
@@ -168,14 +169,14 @@ impl<C: Callbacks> Solver<C> {
     /// sat.set_callbacks(Some(cadical::Timeout::new(0.0)));
     /// assert_eq!(sat.solve(), None);
     /// ```
-    pub fn set_callbacks(&mut self, cb: Option<C>) {
-        if let Some(cb) = cb {
-            if let Some(data) = &mut self.cb {
-                *data.as_mut() = cb;
+    pub fn set_callbacks(&mut self, cbs: Option<C>) {
+        if let Some(cbs) = cbs {
+            if let Some(data) = &mut self.cbs {
+                *data.as_mut() = cbs;
             } else {
-                self.cb = Some(Box::new(cb));
+                self.cbs = Some(Box::new(cbs));
             }
-            let data = self.cb.as_mut().unwrap();
+            let data = self.cbs.as_mut().unwrap();
             let max_length = data.max_length();
             let data = data.as_mut() as *mut C as *mut c_void;
             unsafe {
@@ -183,7 +184,7 @@ impl<C: Callbacks> Solver<C> {
                 ccadical_set_learn(self.ptr, data, max_length, Some(Self::learn_cb));
             }
         } else {
-            self.cb = None;
+            self.cbs = None;
             let data = null_mut() as *mut c_void;
             unsafe {
                 ccadical_set_terminate(self.ptr, data, None);
@@ -194,8 +195,8 @@ impl<C: Callbacks> Solver<C> {
 
     extern "C" fn terminate_cb(data: *mut c_void) -> c_int {
         debug_assert!(!data.is_null());
-        let cb = unsafe { &mut *(data as *mut C) };
-        cb.terminate() as c_int
+        let cbs = unsafe { &mut *(data as *mut C) };
+        cbs.terminate() as c_int
     }
 
     extern "C" fn learn_cb(data: *mut c_void, clause: *const c_int) {
@@ -208,8 +209,8 @@ impl<C: Callbacks> Solver<C> {
         let clause = unsafe { slice::from_raw_parts(clause, len as usize) };
         let clause = ManuallyDrop::new(clause);
 
-        let cb = unsafe { &mut *(data as *mut C) };
-        cb.learn(&clause);
+        let cbs = unsafe { &mut *(data as *mut C) };
+        cbs.learn(&clause);
     }
 
     /// Returns the maximum variable index in the problem as maintained by
@@ -320,6 +321,7 @@ mod tests {
     fn solver() {
         let mut sat: Solver = Solver::new();
         assert!(sat.signature().starts_with("cadical-"));
+        assert_eq!(sat.status(), None);
         sat.add_clause([1, 2].iter().copied());
         assert_eq!(sat.max_variable(), 2);
         assert_eq!(sat.num_variables(), 2);
@@ -334,7 +336,9 @@ mod tests {
         assert_eq!(sat.solve_with([-1, -2].iter().copied()), Some(false));
         assert_eq!(sat.failed(-1), true);
         assert_eq!(sat.failed(-2), true);
+        assert_eq!(sat.status(), Some(false));
         sat.add_clause([4, 5].iter().copied());
+        assert_eq!(sat.status(), None);
         assert_eq!(sat.max_variable(), 5);
         assert_eq!(sat.num_variables(), 4);
         assert_eq!(sat.num_clauses(), 2);

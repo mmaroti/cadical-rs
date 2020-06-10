@@ -22,7 +22,7 @@ interface.
 ```
 let mut sat: cadical::Solver = Default::default();
 sat.add_clause([1, 2].iter().copied());
-assert_eq!(sat.solve_with([-1].iter().copied()), Some(true));
-assert_eq!(sat.value(1), Some(false));
+sat.add_clause([-1, 2].iter().copied());
+assert_eq!(sat.solve(), Some(true));
 assert_eq!(sat.value(2), Some(true));
 ```
