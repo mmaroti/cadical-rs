@@ -78,7 +78,7 @@ impl<C: Callbacks> Solver<C> {
     }
 
     /// Returns the name and version of the CaDiCaL library.
-    pub fn signature(&self) -> &'static str {
+    pub fn signature(&self) -> &str {
         let sig = unsafe { CStr::from_ptr(ccadical_signature()) };
         sig.to_str().unwrap_or("invalid")
     }
