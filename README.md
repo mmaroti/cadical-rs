@@ -26,3 +26,7 @@ sat.add_clause([-1, 2].iter().copied());
 assert_eq!(sat.solve(), Some(true));
 assert_eq!(sat.value(2), Some(true));
 ```
+
+The C++ library is build with assertions disabled and with optimization level
+3 by default. C++ assertions are enabled only when cargo is building a debug 
+version and the debug feature of the library is enabled.

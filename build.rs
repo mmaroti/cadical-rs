@@ -13,8 +13,12 @@ fn main() -> std::io::Result<()> {
     let version = format!("\"{}\"", version.trim());
     build.define("VERSION", version.as_ref());
 
-    if std::env::var("DEBUG").unwrap() == "false" {
-        build.debug(false).define("NDEBUG", None);
+    // assertions only for debug builds with debug feature enabled
+    if std::env::var("PROFILE").unwrap() == "debug" && std::env::var("CARGO_FEATURE_DEBUG").is_ok()
+    {
+        build.debug(true);
+    } else {
+        build.debug(false).opt_level(3).define("NDEBUG", None);
     }
 
     let files = [

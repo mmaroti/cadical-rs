@@ -192,6 +192,36 @@ impl<C: Callbacks> Solver<C> {
         val == 1
     }
 
+    /// Returns the maximum variable index in the problem as maintained by
+    /// the solver.
+    /// # Examples
+    /// ```
+    /// let mut sat: cadical::Solver = Default::default();
+    /// sat.add_clause([1, 3].iter().copied());
+    /// assert_eq!(sat.max_variable(), 3);
+    /// assert_eq!(sat.num_variables(), 2);
+    /// assert_eq!(sat.num_clauses(), 1);
+    /// ```
+    #[inline]
+    pub fn max_variable(&self) -> i32 {
+        unsafe { ccadical_vars(self.ptr) }
+    }
+
+    /// Returns the number of active variables in the problem. Variables become
+    /// active if a clause is added with it. They become inactive, if they
+    /// are eliminated or become fixed at the root level.
+    #[inline]
+    pub fn num_variables(&self) -> i32 {
+        unsafe { ccadical_active(self.ptr) as i32 }
+    }
+
+    /// Returns the number of active irredundant clauses. Clauses become
+    /// inactive if they are satisfied, subsumed or eliminated.
+    #[inline]
+    pub fn num_clauses(&self) -> usize {
+        unsafe { ccadical_irredundant(self.ptr) as usize }
+    }
+
     /// Sets the callbacks to be called while the solver is running.
     /// # Examples
     /// ```
@@ -244,34 +274,9 @@ impl<C: Callbacks> Solver<C> {
         cbs.learn(&clause);
     }
 
-    /// Returns the maximum variable index in the problem as maintained by
-    /// the solver.
-    /// # Examples
-    /// ```
-    /// let mut sat: cadical::Solver = Default::default();
-    /// sat.add_clause([1, 3].iter().copied());
-    /// assert_eq!(sat.max_variable(), 3);
-    /// assert_eq!(sat.num_variables(), 2);
-    /// assert_eq!(sat.num_clauses(), 1);
-    /// ```
-    #[inline]
-    pub fn max_variable(&self) -> i32 {
-        unsafe { ccadical_vars(self.ptr) }
-    }
-
-    /// Returns the number of active variables in the problem. Variables become
-    /// active if a clause is added with it. They become inactive, if they
-    /// are eliminated or become fixed at the root level.
-    #[inline]
-    pub fn num_variables(&self) -> i32 {
-        unsafe { ccadical_active(self.ptr) as i32 }
-    }
-
-    /// Returns the number of active irredundant clauses. Clauses become
-    /// inactive if they are satisfied, subsumed or eliminated.
-    #[inline]
-    pub fn num_clauses(&self) -> usize {
-        unsafe { ccadical_irredundant(self.ptr) as usize }
+    /// Returns a mutable reference to the callbacks.
+    pub fn get_callbacks(&mut self) -> Option<&mut C> {
+        self.cbs.as_mut().map(|a| a.as_mut())
     }
 
     /// Writes the problem in DIMACS format to the given file.
