@@ -14,11 +14,11 @@ fn main() -> std::io::Result<()> {
     build.define("VERSION", version.as_ref());
 
     // assertions only for debug builds with debug feature enabled
-    if std::env::var("PROFILE").unwrap() == "debug" && std::env::var("CARGO_FEATURE_CPP_DEBUG").is_ok()
+    if std::env::var("PROFILE").unwrap() == "debug"
+        && std::env::var("CARGO_FEATURE_CPP_DEBUG").is_ok()
     {
         build.debug(true);
     } else {
-        assert!(false);
         build.debug(false).opt_level(3).define("NDEBUG", None);
     }
 
