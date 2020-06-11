@@ -16,4 +16,4 @@ exclude = ["cadical/src/makefile", "cadical/scripts", "cadical/test"]
 cc = { version = "1.0", features = ["parallel"] }
 
 [features]
-debug = []
+cpp-debug = []
