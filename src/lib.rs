@@ -77,38 +77,28 @@ impl<C: Callbacks> Solver<C> {
         Self { ptr, cbs: None }
     }
 
-    /// Returns the name and version of the CaDiCaL library.
-    pub fn signature(&self) -> &str {
-        let sig = unsafe { CStr::from_ptr(ccadical_signature()) };
-        sig.to_str().unwrap_or("invalid")
-    }
-
-    /// Configures the solver to one of the following pre-defined
+    /// Constructs a new solver with one of the following pre-defined
     /// configurations of advanced internal options:
     ///
     /// * `default`: set default advanced internal options
     /// * `plain`: disable all internal preprocessing options
     /// * `sat`: set internal options to target satisfiable instances
     /// * `unsat`: set internal options to target unsatisfiable instances
-    ///
-    /// You must call this method during configuration time, before adding any
-    /// clauses.
-    /// # Examples
-    /// ```
-    /// let mut sat: cadical::Solver = Default::default();
-    /// sat.configure("unsat");
-    /// ```
-    pub fn configure(&mut self, config: &str) -> Result<(), Error> {
-        if self.max_variable() != 0 {
-            return Err(Error::new("invalid state"));
-        }
+    pub fn with_config(&mut self, config: &str) -> Result<Self, Error> {
+        let sat: Self = Default::default();
         let config = CString::new(config).map_err(|_| Error::new("invalid string"))?;
-        let res = unsafe { ccadical_configure(self.ptr, config.as_ptr()) };
+        let res = unsafe { ccadical_configure(sat.ptr, config.as_ptr()) };
         if res != 0 {
-            Ok(())
+            Ok(sat)
         } else {
             Err(Error::new("invalid config"))
         }
+    }
+
+    /// Returns the name and version of the CaDiCaL library.
+    pub fn signature(&self) -> &str {
+        let sig = unsafe { CStr::from_ptr(ccadical_signature()) };
+        sig.to_str().unwrap_or("invalid")
     }
 
     /// Adds the given clause to the solver. Negated literals are negative
@@ -120,7 +110,7 @@ impl<C: Callbacks> Solver<C> {
         I: Iterator<Item = i32>,
     {
         for lit in clause {
-            debug_assert!(lit != 0 && lit != i32::MIN);
+            debug_assert!(lit != 0 && lit != std::i32::MIN);
             unsafe { ccadical_add(self.ptr, lit) };
         }
         unsafe { ccadical_add(self.ptr, 0) };
@@ -152,7 +142,7 @@ impl<C: Callbacks> Solver<C> {
         I: Iterator<Item = i32>,
     {
         for lit in assumptions {
-            debug_assert!(lit != 0 && lit != i32::MIN);
+            debug_assert!(lit != 0 && lit != std::i32::MIN);
             unsafe { ccadical_assume(self.ptr, lit) };
         }
         self.solve()
@@ -180,7 +170,7 @@ impl<C: Callbacks> Solver<C> {
     #[inline]
     pub fn value(&self, lit: i32) -> Option<bool> {
         debug_assert!(self.status() == Some(true));
-        debug_assert!(lit != 0 && lit != i32::MIN);
+        debug_assert!(lit != 0 && lit != std::i32::MIN);
         let val = unsafe { ccadical_val(self.ptr, lit) };
         if val == lit {
             Some(true)
@@ -197,7 +187,7 @@ impl<C: Callbacks> Solver<C> {
     #[inline]
     pub fn failed(&self, lit: i32) -> bool {
         debug_assert!(self.status() == Some(false));
-        debug_assert!(lit != 0 && lit != i32::MIN);
+        debug_assert!(lit != 0 && lit != std::i32::MIN);
         let val = unsafe { ccadical_failed(self.ptr, lit) };
         val == 1
     }
