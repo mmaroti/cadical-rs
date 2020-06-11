@@ -1,3 +1,4 @@
+#[allow(clippy::logic_bug)]
 fn main() -> std::io::Result<()> {
     let mut build = cc::Build::new();
     build

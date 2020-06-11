@@ -50,6 +50,7 @@ extern "C" {
         path: *const c_char,
         min_max_var: c_int,
     ) -> *const c_char;
+    fn ccadical_configure(ptr: *mut c_void, name: *const c_char) -> c_int;
 }
 
 /// The CaDiCaL incremental SAT solver. The literals are unwrapped positive
@@ -78,8 +79,36 @@ impl<C: Callbacks> Solver<C> {
 
     /// Returns the name and version of the CaDiCaL library.
     pub fn signature(&self) -> &'static str {
-        let s = unsafe { CStr::from_ptr(ccadical_signature()) };
-        s.to_str().unwrap_or("invalid")
+        let sig = unsafe { CStr::from_ptr(ccadical_signature()) };
+        sig.to_str().unwrap_or("invalid")
+    }
+
+    /// Configures the solver to one of the following pre-defined
+    /// configurations of advanced internal options:
+    ///
+    /// * `default`: set default advanced internal options
+    /// * `plain`: disable all internal preprocessing options
+    /// * `sat`: set internal options to target satisfiable instances
+    /// * `unsat`: set internal options to target unsatisfiable instances
+    ///
+    /// You must call this method during configuration time, before adding any
+    /// clauses.
+    /// # Examples
+    /// ```
+    /// let mut sat: cadical::Solver = Default::default();
+    /// sat.configure("unsat");
+    /// ```
+    pub fn configure(&mut self, config: &str) -> Result<(), Error> {
+        if self.max_variable() != 0 {
+            return Err(Error::new("invalid state"));
+        }
+        let config = CString::new(config).map_err(|_| Error::new("invalid string"))?;
+        let res = unsafe { ccadical_configure(self.ptr, config.as_ptr()) };
+        if res != 0 {
+            Ok(())
+        } else {
+            Err(Error::new("invalid config"))
+        }
     }
 
     /// Adds the given clause to the solver. Negated literals are negative
@@ -256,37 +285,43 @@ impl<C: Callbacks> Solver<C> {
     }
 
     /// Writes the problem in DIMACS format to the given file.
-    pub fn write_dimacs(&mut self, path: &Path) -> Result<(), DimacsError> {
-        let path = make_cpath(path)?;
+    pub fn write_dimacs(&mut self, path: &Path) -> Result<(), Error> {
+        let path = dimacs_path(path)?;
         let err = unsafe { ccadical_write_dimacs(self.ptr, path.as_ptr(), 0) };
         if err.is_null() {
             Ok(())
         } else {
-            let err = unsafe { CStr::from_ptr(err) };
-            Err(DimacsError::new(err.to_str().unwrap_or("invalid response")))
+            Err(dimacs_error(err))
         }
     }
 
-    /// Reads a problem in DIMACS format from the given file.
-    pub fn from_dimacs(path: &Path) -> Result<Self, DimacsError> {
-        let sat: Solver<C> = Default::default();
-        let path = make_cpath(path)?;
+    /// Reads a problem in DIMACS format from the given file. You must call
+    /// this function during configuration time, before adding any clauses.
+    /// Returns the number of variables as reported by the loader.
+    pub fn read_dimacs(&mut self, path: &Path) -> Result<i32, Error> {
+        if self.max_variable() != 0 {
+            return Err(Error::new("invalid state"));
+        }
+        let path = dimacs_path(path)?;
         let mut vars: c_int = 0;
         let err =
-            unsafe { ccadical_read_dimacs(sat.ptr, path.as_ptr(), &mut vars as *mut c_int, 0) };
+            unsafe { ccadical_read_dimacs(self.ptr, path.as_ptr(), &mut vars as *mut c_int, 0) };
         if err.is_null() {
-            Ok(sat)
+            Ok(vars)
         } else {
-            // The returned string is freed once Solver is dropped!
-            let err = unsafe { CStr::from_ptr(err) };
-            Err(DimacsError::new(err.to_str().unwrap_or("invalid response")))
+            Err(dimacs_error(err))
         }
     }
 }
 
-fn make_cpath(path: &Path) -> Result<CString, DimacsError> {
-    let path = path.to_str().ok_or(DimacsError::new("invalid path name"))?;
-    CString::new(path).map_err(|_| DimacsError::new("invalid path name"))
+fn dimacs_path(path: &Path) -> Result<CString, Error> {
+    let path = path.to_str().ok_or_else(|| Error::new("invalid path"))?;
+    CString::new(path).map_err(|_| Error::new("invalid path"))
+}
+
+fn dimacs_error(err: *const c_char) -> Error {
+    let err = unsafe { CStr::from_ptr(err) };
+    Error::new(err.to_str().unwrap_or("invalid response"))
 }
 
 impl<C: Callbacks> Default for Solver<C> {
@@ -357,21 +392,21 @@ impl Callbacks for Timeout {
     }
 }
 
-#[derive(Clone, Debug)]
-/// Error type for DIMACS reading amd writing.
-pub struct DimacsError {
+#[derive(Clone, Debug, PartialEq, Eq)]
+/// Error type for configuration and DIMACS reading and writing errors.
+pub struct Error {
     pub msg: String,
 }
 
-impl DimacsError {
+impl Error {
     pub fn new(msg: &str) -> Self {
-        DimacsError {
+        Error {
             msg: msg.to_string(),
         }
     }
 }
 
-impl fmt::Display for DimacsError {
+impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.msg.fmt(f)
     }
@@ -478,13 +513,16 @@ mod tests {
         println!("writing DIMACS to: {:?}", path);
         assert!(sat.write_dimacs(&path).is_ok());
         assert!(path.is_file());
+        let num_vars = sat.max_variable();
 
         println!("reading DIMACS from: {:?}", path);
-        let mut sat: Solver = Solver::from_dimacs(&path).unwrap();
+        let mut sat: Solver = Default::default();
+        assert_eq!(sat.read_dimacs(&path), Ok(num_vars));
         assert_eq!(sat.solve(), Some(false));
 
         let path = Path::new("MISSINGFILE");
-        let res: Result<Solver, DimacsError> = Solver::from_dimacs(path);
+        let mut sat: Solver = Default::default();
+        let res = sat.read_dimacs(path);
         assert!(res.is_err());
         println!("reading DIMACS error: {}", res.err().unwrap());
     }

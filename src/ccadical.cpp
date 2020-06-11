@@ -20,4 +20,8 @@ const char * ccadical_write_dimacs (CCaDiCaL * wrapper, const char * path,
   return ((Wrapper*) wrapper)->solver->write_dimacs (path, min_max_var);
 }
 
+int ccadical_configure (CCaDiCaL * wrapper, const char * name) {
+    return ((Wrapper*) wrapper)->solver->configure (name);
+}
+
 }
