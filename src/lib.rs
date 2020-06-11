@@ -84,7 +84,7 @@ impl<C: Callbacks> Solver<C> {
     /// * `plain`: disable all internal preprocessing options
     /// * `sat`: set internal options to target satisfiable instances
     /// * `unsat`: set internal options to target unsatisfiable instances
-    pub fn with_config(&mut self, config: &str) -> Result<Self, Error> {
+    pub fn with_config(config: &str) -> Result<Self, Error> {
         let sat: Self = Default::default();
         let config = CString::new(config).map_err(|_| Error::new("invalid string"))?;
         let res = unsafe { ccadical_configure(sat.ptr, config.as_ptr()) };
