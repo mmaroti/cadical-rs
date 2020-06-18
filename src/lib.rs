@@ -331,8 +331,11 @@ impl<C: Callbacks> Drop for Solver<C> {
     }
 }
 
+/// CaDiCaL does not use thread local variables, so it is possible to
+/// move it between threads. However it cannot be used queried concurrently
+/// (for example getting the value from multiple threads at once), so we
+/// do not implement `Sync`.
 unsafe impl<C: Callbacks + Send> Send for Solver<C> {}
-unsafe impl<C: Callbacks + Sync> Sync for Solver<C> {}
 
 /// Callbacks trait for finer control.
 pub trait Callbacks {
