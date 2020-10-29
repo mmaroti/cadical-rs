@@ -51,6 +51,7 @@ extern "C" {
         min_max_var: c_int,
     ) -> *const c_char;
     fn ccadical_configure(ptr: *mut c_void, name: *const c_char) -> c_int;
+    fn ccadical_limit(ptr: *mut c_void, name: *const c_char, limit: c_int);
 }
 
 /// The CaDiCaL incremental SAT solver. The literals are unwrapped positive
@@ -220,6 +221,49 @@ impl<C: Callbacks> Solver<C> {
     #[inline]
     pub fn num_clauses(&self) -> usize {
         unsafe { ccadical_irredundant(self.ptr) as usize }
+    }
+
+    /// Sets the solver limit with the corresponding name.
+    /// The name must be a zero-terminated string.
+    unsafe fn limit(&self, name: &[u8], limit: i32) {
+        ccadical_limit(self.ptr, CStr::from_bytes_with_nul_unchecked(name).as_ptr(), limit)
+    }
+
+    /// Sets the termination limit of the prover.
+    /// This number is regularly decremented and causes early
+    /// termination when reaching zero.
+    /// Setting the limit to 0 disables it.
+    /// Defaults to 0.
+    pub fn limit_terminate(&self, limit: i32) {
+        unsafe { self.limit(b"terminate\0", limit) }
+    }
+
+    /// Sets a limit on the number of conflicts.
+    /// Setting the limit to -1 disables it.
+    /// Defaults to -1.
+    pub fn limit_conflicts(&self, limit: i32) {
+        unsafe { self.limit(b"conflicts\0", limit) }
+    }
+
+    /// Sets a limit on the number of decisions.
+    /// Setting the limit to -1 disables it.
+    /// Defaults to -1.
+    pub fn limit_decisions(&self, limit: i32) {
+        unsafe { self.limit(b"decisions\0", limit) }
+    }
+
+    /// Sets a limit on the number of preprocessing rounds.
+    /// Setting the limit to 0 completely disables preprocessing.
+    /// Defaults to 0.
+    pub fn limit_preprocessing(&self, limit: i32) {
+        unsafe { self.limit(b"preprocessing\0", limit) }
+    }
+
+    /// Sets a limit on the number of local search rounds.
+    /// Setting the limit to 0 completely disables local search.
+    /// Defaults to 0.
+    pub fn limit_localsearch(&self, limit: i32) {
+        unsafe { self.limit(b"localsearch\0", limit) }
     }
 
     /// Sets the callbacks to be called while the solver is running.
@@ -491,6 +535,28 @@ mod tests {
 
         sat.set_callbacks(None);
         assert_eq!(sat.solve(), Some(false));
+    }
+
+    #[test]
+    fn decision_limit() {
+        let mut sat = pigeon_hole(5);
+        sat.limit_decisions(100);
+        let result = sat.solve();
+        assert_eq!(result, None);
+        sat.limit_decisions(-1);
+        let result = sat.solve();
+        assert_eq!(result, Some(false));
+    }
+
+    #[test]
+    fn conflict_limit() {
+        let mut sat = pigeon_hole(5);
+        sat.limit_conflicts(100);
+        let result = sat.solve();
+        assert_eq!(result, None);
+        sat.limit_conflicts(-1);
+        let result = sat.solve();
+        assert_eq!(result, Some(false));
     }
 
     #[test]
