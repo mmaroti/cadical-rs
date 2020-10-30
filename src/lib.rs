@@ -197,7 +197,7 @@ impl<C: Callbacks> Solver<C> {
     /// # Examples
     /// ```
     /// let mut sat: cadical::Solver = Default::default();
-    /// sat.add_clause([1, 3].iter().copied());
+    /// sat.add_clause([1, -3].iter().copied());
     /// assert_eq!(sat.max_variable(), 3);
     /// assert_eq!(sat.num_variables(), 2);
     /// assert_eq!(sat.num_clauses(), 1);
