@@ -1,10 +1,6 @@
-#include "../cadical/src/internal.hpp"
-
-#include <chrono>
-
-/*------------------------------------------------------------------------*/
-
 // Generic c++11 implementation
+#include "../../cadical/src/internal.hpp"
+#include <chrono>
 
 namespace CaDiCaL {
 

@@ -9,7 +9,8 @@ fn main() -> std::io::Result<()> {
         .define("NTRACING", None)
         .define("QUIET", None);
 
-    let version = std::fs::read_to_string("cadical/VERSION")?;
+    let version = std::fs::read_to_string("cadical/VERSION");
+    let version = version.expect("missing cadical submodule");
     let version = format!("\"{}\"", version.trim());
     build.define("VERSION", version.as_ref());
 
@@ -22,8 +23,7 @@ fn main() -> std::io::Result<()> {
         build.debug(false).opt_level(3).define("NDEBUG", None);
     }
 
-    let files = [
-        "src/resources.cpp",
+    let mut files = vec![
         "src/ccadical.cpp",
         "cadical/src/version.cpp",
         "cadical/src/solver.cpp",
@@ -89,6 +89,14 @@ fn main() -> std::io::Result<()> {
         "cadical/src/parse.cpp",
         "cadical/src/format.cpp",
     ];
+
+    if build.get_compiler().is_like_msvc() {
+        build.include(std::path::Path::new("src/msvc"));
+        files.push("src/msvc/resources.cpp")
+    } else {
+        files.push("cadical/src/resources.cpp")
+    }
+
     build.files(files.iter());
     for &file in files.iter() {
         println!("cargo:rerun-if-changed={}", file);

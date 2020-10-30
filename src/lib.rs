@@ -226,7 +226,11 @@ impl<C: Callbacks> Solver<C> {
     /// Sets the solver limit with the corresponding name.
     /// The name must be a zero-terminated string.
     unsafe fn limit(&self, name: &[u8], limit: i32) {
-        ccadical_limit(self.ptr, CStr::from_bytes_with_nul_unchecked(name).as_ptr(), limit)
+        ccadical_limit(
+            self.ptr,
+            CStr::from_bytes_with_nul_unchecked(name).as_ptr(),
+            limit,
+        )
     }
 
     /// Sets the termination limit of the prover.
