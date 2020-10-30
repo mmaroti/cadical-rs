@@ -51,7 +51,7 @@ extern "C" {
         min_max_var: c_int,
     ) -> *const c_char;
     fn ccadical_configure(ptr: *mut c_void, name: *const c_char) -> c_int;
-    fn ccadical_limit(ptr: *mut c_void, name: *const c_char, limit: c_int);
+    fn ccadical_limit2(ptr: *mut c_void, name: *const c_char, limit: c_int) -> c_int;
 }
 
 /// The CaDiCaL incremental SAT solver. The literals are unwrapped positive
@@ -80,7 +80,6 @@ impl<C: Callbacks> Solver<C> {
 
     /// Constructs a new solver with one of the following pre-defined
     /// configurations of advanced internal options:
-    ///
     /// * `default`: set default advanced internal options
     /// * `plain`: disable all internal preprocessing options
     /// * `sat`: set internal options to target satisfiable instances
@@ -223,51 +222,28 @@ impl<C: Callbacks> Solver<C> {
         unsafe { ccadical_irredundant(self.ptr) as usize }
     }
 
-    /// Sets the solver limit with the corresponding name.
-    /// The name must be a zero-terminated string.
-    unsafe fn limit(&self, name: &[u8], limit: i32) {
-        ccadical_limit(
-            self.ptr,
-            CStr::from_bytes_with_nul_unchecked(name).as_ptr(),
-            limit,
-        )
-    }
-
-    /// Sets the termination limit of the prover.
-    /// This number is regularly decremented and causes early
-    /// termination when reaching zero.
-    /// Setting the limit to 0 disables it.
-    /// Defaults to 0.
-    pub fn limit_terminate(&self, limit: i32) {
-        unsafe { self.limit(b"terminate\0", limit) }
-    }
-
-    /// Sets a limit on the number of conflicts.
-    /// Setting the limit to -1 disables it.
-    /// Defaults to -1.
-    pub fn limit_conflicts(&self, limit: i32) {
-        unsafe { self.limit(b"conflicts\0", limit) }
-    }
-
-    /// Sets a limit on the number of decisions.
-    /// Setting the limit to -1 disables it.
-    /// Defaults to -1.
-    pub fn limit_decisions(&self, limit: i32) {
-        unsafe { self.limit(b"decisions\0", limit) }
-    }
-
-    /// Sets a limit on the number of preprocessing rounds.
-    /// Setting the limit to 0 completely disables preprocessing.
-    /// Defaults to 0.
-    pub fn limit_preprocessing(&self, limit: i32) {
-        unsafe { self.limit(b"preprocessing\0", limit) }
-    }
-
-    /// Sets a limit on the number of local search rounds.
-    /// Setting the limit to 0 completely disables local search.
-    /// Defaults to 0.
-    pub fn limit_localsearch(&self, limit: i32) {
-        unsafe { self.limit(b"localsearch\0", limit) }
+    /// Sets a solver limit with the corresponding name to the given value.
+    /// These limits are only valid for the next `solve` or `solve_with` call
+    /// and reset to their default values, which disables them.
+    /// The following limits are supported:
+    /// * `preprocessing`: the number of preprocessing rounds to be performed
+    ///    during the search (defaults to 0).
+    /// * `localsearch`: the number of local search rounds to be performed
+    ///    during the search (defaults to 0).
+    /// * `terminate`: this value is regularly decremented and aborts the
+    ///    solver when it reaches zero (defaults to `0`).
+    /// * `conflicts`: decremented when a conflict is detected
+    ///    and aborts the solver when it becomes negative (defaults to `-1`).
+    /// * `decisions`: decremented when a decision is made
+    ///    and aborts the solver when it becomes negative (defaults to `-1`).
+    pub fn set_limit(&mut self, name: &str, limit: i32) -> Result<(), Error> {
+        let name = CString::new(name).map_err(|_| Error::new("invalid string"))?;
+        let valid = unsafe { ccadical_limit2(self.ptr, name.as_ptr(), limit) };
+        if valid != 0 {
+            Ok(())
+        } else {
+            Err(Error::new("unknown limit"))
+        }
     }
 
     /// Sets the callbacks to be called while the solver is running.
@@ -544,10 +520,10 @@ mod tests {
     #[test]
     fn decision_limit() {
         let mut sat = pigeon_hole(5);
-        sat.limit_decisions(100);
+        sat.set_limit("decisions", 100).unwrap();
         let result = sat.solve();
         assert_eq!(result, None);
-        sat.limit_decisions(-1);
+        sat.set_limit("decisions", -1).unwrap();
         let result = sat.solve();
         assert_eq!(result, Some(false));
     }
@@ -555,12 +531,19 @@ mod tests {
     #[test]
     fn conflict_limit() {
         let mut sat = pigeon_hole(5);
-        sat.limit_conflicts(100);
+        sat.set_limit("conflicts", 100).unwrap();
         let result = sat.solve();
         assert_eq!(result, None);
-        sat.limit_conflicts(-1);
+        sat.set_limit("conflicts", -1).unwrap();
         let result = sat.solve();
         assert_eq!(result, Some(false));
+    }
+
+    #[test]
+    fn bad_limit() {
+        let mut sat = pigeon_hole(5);
+        assert!(sat.set_limit("\0", 0) == Err(Error::new("invalid string")));
+        assert!(sat.set_limit("bad", 0) == Err(Error::new("unknown limit")));
     }
 
     #[test]
