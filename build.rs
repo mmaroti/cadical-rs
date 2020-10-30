@@ -82,7 +82,6 @@ fn main() -> std::io::Result<()> {
         "cadical/src/compact.cpp",
         "cadical/src/contract.cpp",
         "cadical/src/util.cpp",
-        "cadical/src/lookahead.cpp",
         "cadical/src/config.cpp",
         "cadical/src/file.cpp",
         "cadical/src/tracer.cpp",
@@ -92,9 +91,11 @@ fn main() -> std::io::Result<()> {
 
     if build.get_compiler().is_like_msvc() {
         build.include(std::path::Path::new("src/msvc"));
-        files.push("src/msvc/resources.cpp")
+        files.push("src/msvc/resources.cpp");
+        files.push("src/msvc/lookahead.cpp");
     } else {
-        files.push("cadical/src/resources.cpp")
+        files.push("cadical/src/resources.cpp");
+        files.push("cadical/src/lookahead.cpp");
     }
 
     build.files(files.iter());
