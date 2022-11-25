@@ -60,8 +60,8 @@ extern "C" {
 /// # Examples
 /// ```
 /// let mut sat: cadical::Solver = Default::default();
-/// sat.add_clause([1, 2].iter().copied());
-/// sat.add_clause([-1, 2].iter().copied());
+/// sat.add_clause([1, 2]);
+/// sat.add_clause([-1, 2]);
 /// assert_eq!(sat.solve(), Some(true));
 /// assert_eq!(sat.value(2), Some(true));
 /// ```
@@ -107,7 +107,7 @@ impl<C: Callbacks> Solver<C> {
     #[inline]
     pub fn add_clause<I>(&mut self, clause: I)
     where
-        I: Iterator<Item = i32>,
+        I: IntoIterator<Item = i32>,
     {
         for lit in clause {
             debug_assert!(lit != 0 && lit != std::i32::MIN);
@@ -197,7 +197,7 @@ impl<C: Callbacks> Solver<C> {
     /// # Examples
     /// ```
     /// let mut sat: cadical::Solver = Default::default();
-    /// sat.add_clause([1, -3].iter().copied());
+    /// sat.add_clause([1, -3]);
     /// assert_eq!(sat.max_variable(), 3);
     /// assert_eq!(sat.num_variables(), 2);
     /// assert_eq!(sat.num_clauses(), 1);
@@ -250,7 +250,7 @@ impl<C: Callbacks> Solver<C> {
     /// # Examples
     /// ```
     /// let mut sat: cadical::Solver = Default::default();
-    /// sat.add_clause([1, 2].iter().copied());
+    /// sat.add_clause([1, 2]);
     /// sat.set_callbacks(Some(cadical::Timeout::new(0.0)));
     /// assert_eq!(sat.solve(), None);
     /// ```
@@ -444,7 +444,7 @@ mod tests {
         let mut sat: Solver = Solver::new();
         assert!(sat.signature().starts_with("cadical-"));
         assert_eq!(sat.status(), None);
-        sat.add_clause([1, 2].iter().copied());
+        sat.add_clause([1, 2]);
         assert_eq!(sat.max_variable(), 2);
         assert_eq!(sat.num_variables(), 2);
         assert_eq!(sat.num_clauses(), 1);
@@ -459,7 +459,7 @@ mod tests {
         assert_eq!(sat.failed(-1), true);
         assert_eq!(sat.failed(-2), true);
         assert_eq!(sat.status(), Some(false));
-        sat.add_clause([4, 5].iter().copied());
+        sat.add_clause([4, 5]);
         assert_eq!(sat.status(), None);
         assert_eq!(sat.max_variable(), 5);
         assert_eq!(sat.num_variables(), 4);
@@ -483,7 +483,7 @@ mod tests {
                 for j in 0..num {
                     let l1 = 1 + i1 * num + j;
                     let l2 = 1 + i2 * num + j;
-                    sat.add_clause([-l1, -l2].iter().copied())
+                    sat.add_clause([-l1, -l2])
                 }
             }
         }

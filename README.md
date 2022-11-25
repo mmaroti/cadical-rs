@@ -21,8 +21,8 @@ interface.
 
 ```
 let mut sat: cadical::Solver = Default::default();
-sat.add_clause([1, 2].iter().copied());
-sat.add_clause([-1, 2].iter().copied());
+sat.add_clause([1, 2]);
+sat.add_clause([-1, 2]);
 assert_eq!(sat.solve(), Some(true));
 assert_eq!(sat.value(2), Some(true));
 ```
