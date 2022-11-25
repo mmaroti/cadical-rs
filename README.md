@@ -1,6 +1,6 @@
 CaDiCaL SAT solver
 ==================
-[![Build Status](https://travis-ci.com/mmaroti/cadical-rs.svg?branch=master)](https://travis-ci.com/mmaroti/cadical-rs)
+[![Build Status](https://app.travis-ci.com/mmaroti/cadical-rs.svg?branch=master)](https://app.travis-ci.com/github/mmaroti/cadical-rs)
 [![Crate](https://img.shields.io/crates/v/cadical)](https://crates.io/crates/cadical)
 [![Documentation](https://docs.rs/cadical/badge.svg)](https://docs.rs/cadical)
 [![GitHub](https://img.shields.io/github/license/mmaroti/cadical-rs)](LICENSE)
