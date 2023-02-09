@@ -87,6 +87,9 @@ fn main() -> std::io::Result<()> {
         "cadical/src/tracer.cpp",
         "cadical/src/parse.cpp",
         "cadical/src/format.cpp",
+        "cadical/src/constrain.cpp",
+        "cadical/src/reap.cpp",
+        "cadical/src/shrink.cpp",
     ];
 
     if build.get_compiler().is_like_msvc() {
