@@ -138,9 +138,14 @@ impl<C: Callbacks> Solver<C> {
 
     /// Solves the formula defined by the set of clauses under the given
     /// assumptions and the clause under the given temporary constraint.
-    pub fn solve_with<I>(&mut self, assumptions: I, temporary_constraint: Option<I>) -> Option<bool>
+    pub fn solve_with<I, U>(
+        &mut self,
+        assumptions: I,
+        temporary_constraint: Option<U>,
+    ) -> Option<bool>
     where
         I: Iterator<Item = i32>,
+        U: Iterator<Item = i32>,
     {
         for lit in assumptions {
             debug_assert!(lit != 0 && lit != std::i32::MIN);
