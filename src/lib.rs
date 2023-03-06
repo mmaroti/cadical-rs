@@ -35,6 +35,7 @@ extern "C" {
         max_len: c_int,
         cbs: Option<extern "C" fn(*mut c_void, *const c_int)>,
     );
+    fn ccadical_constrain(ptr: *mut c_void, lit: c_int);
     fn ccadical_status(ptr: *mut c_void) -> c_int;
     fn ccadical_vars(ptr: *mut c_void) -> c_int;
     fn ccadical_active(ptr: *mut c_void) -> i64;
@@ -136,14 +137,21 @@ impl<C: Callbacks> Solver<C> {
     }
 
     /// Solves the formula defined by the set of clauses under the given
-    /// assumptions.
-    pub fn solve_with<I>(&mut self, assumptions: I) -> Option<bool>
+    /// assumptions and the clause under the given temporary constraint.
+    pub fn solve_with<I>(&mut self, assumptions: I, temporary_constraint: Option<I>) -> Option<bool>
     where
         I: Iterator<Item = i32>,
     {
         for lit in assumptions {
             debug_assert!(lit != 0 && lit != std::i32::MIN);
             unsafe { ccadical_assume(self.ptr, lit) };
+        }
+        if let Some(constaint) = temporary_constraint {
+            for lit in constaint {
+                debug_assert!(lit != 0 && lit != std::i32::MIN);
+                unsafe { ccadical_constrain(self.ptr, lit) };
+            }
+            unsafe { ccadical_constrain(self.ptr, 0) };
         }
         self.solve()
     }
@@ -449,13 +457,13 @@ mod tests {
         assert_eq!(sat.num_variables(), 2);
         assert_eq!(sat.num_clauses(), 1);
         assert_eq!(sat.solve(), Some(true));
-        assert_eq!(sat.solve_with([-1].iter().copied()), Some(true));
+        assert_eq!(sat.solve_with([-1].iter().copied(), None), Some(true));
         assert_eq!(sat.value(1), Some(false));
         assert_eq!(sat.value(2), Some(true));
-        assert_eq!(sat.solve_with([-2].iter().copied()), Some(true));
+        assert_eq!(sat.solve_with([-2].iter().copied(), None), Some(true));
         assert_eq!(sat.value(1), Some(true));
         assert_eq!(sat.value(2), Some(false));
-        assert_eq!(sat.solve_with([-1, -2].iter().copied()), Some(false));
+        assert_eq!(sat.solve_with([-1, -2].iter().copied(), None), Some(false));
         assert_eq!(sat.failed(-1), true);
         assert_eq!(sat.failed(-2), true);
         assert_eq!(sat.status(), Some(false));
@@ -464,10 +472,31 @@ mod tests {
         assert_eq!(sat.max_variable(), 5);
         assert_eq!(sat.num_variables(), 4);
         assert_eq!(sat.num_clauses(), 2);
-        assert_eq!(sat.solve_with([-1, -2, -4].iter().copied()), Some(false));
+        assert_eq!(
+            sat.solve_with([-1, -2, -4].iter().copied(), None),
+            Some(false)
+        );
         assert_eq!(sat.failed(-1), true);
         assert_eq!(sat.failed(-2), true);
         assert_eq!(sat.failed(-4), false);
+    }
+
+    #[test]
+    fn solve_with_temporary_constraint() {
+        let mut sat: Solver = Solver::new();
+        assert!(sat.signature().starts_with("cadical-"));
+        assert_eq!(sat.status(), None);
+        sat.add_clause([1, 2]);
+        assert_eq!(sat.max_variable(), 2);
+        assert_eq!(sat.num_variables(), 2);
+        assert_eq!(sat.num_clauses(), 1);
+        assert_eq!(sat.solve(), Some(true));
+        assert_eq!(
+            sat.solve_with([1].iter().copied(), Some([-1, -2].iter().copied())),
+            Some(true)
+        );
+        assert_eq!(sat.value(1), Some(true));
+        assert_eq!(sat.value(2), Some(false));
     }
 
     fn pigeon_hole(num: i32) -> Solver {
