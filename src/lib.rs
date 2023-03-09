@@ -141,8 +141,8 @@ impl<C: Callbacks> Solver<C> {
     /// assumptions and the clause under the given temporary constraint.
     pub fn solve_with<I, U>(&mut self, assumptions: I, constraint: U) -> Option<bool>
     where
-        I: Iterator<Item = i32>,
-        U: Iterator<Item = i32>,
+        I: IntoIterator<Item = i32>,
+        U: IntoIterator<Item = i32>,
     {
         // add all the assumptions
         for lit in assumptions {
