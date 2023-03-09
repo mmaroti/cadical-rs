@@ -157,6 +157,7 @@ impl<C: Callbacks> Solver<C> {
             debug_assert!(lit != 0 && lit != std::i32::MIN);
             unsafe { ccadical_constrain(self.ptr, lit) };
         }
+        // finalize the clause if needed
         if iterations > 0 {
             unsafe { ccadical_constrain(self.ptr, 0) };
         }
