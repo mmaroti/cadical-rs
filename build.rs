@@ -103,7 +103,7 @@ fn main() -> std::io::Result<()> {
 
     build.files(files.iter());
     for &file in files.iter() {
-        println!("cargo:rerun-if-changed={}", file);
+        println!("cargo:rerun-if-changed={file}");
     }
 
     build.compile("ccadical");

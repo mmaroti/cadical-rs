@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
-    use cadical::{Timeout, Solver, Error};
-    use std::{thread, time::Instant, iter, path::Path};
+    use cadical::{Error, Solver, Timeout};
+    use std::{iter, path::Path, thread, time::Instant};
 
     #[test]
     fn solver() {
@@ -13,13 +13,22 @@ mod tests {
         assert_eq!(sat.num_variables(), 2);
         assert_eq!(sat.num_clauses(), 1);
         assert_eq!(sat.solve(), Some(true));
-        assert_eq!(sat.solve_with([-1].iter().copied(), iter::empty::<i32>()), Some(true));
+        assert_eq!(
+            sat.solve_with([-1].iter().copied(), iter::empty::<i32>()),
+            Some(true)
+        );
         assert_eq!(sat.value(1), Some(false));
         assert_eq!(sat.value(2), Some(true));
-        assert_eq!(sat.solve_with([-2].iter().copied(), iter::empty::<i32>()), Some(true));
+        assert_eq!(
+            sat.solve_with([-2].iter().copied(), iter::empty::<i32>()),
+            Some(true)
+        );
         assert_eq!(sat.value(1), Some(true));
         assert_eq!(sat.value(2), Some(false));
-        assert_eq!(sat.solve_with([-1, -2].iter().copied(), iter::empty::<i32>()), Some(false));
+        assert_eq!(
+            sat.solve_with([-1, -2].iter().copied(), iter::empty::<i32>()),
+            Some(false)
+        );
         assert_eq!(sat.failed(-1), true);
         assert_eq!(sat.failed(-2), true);
         assert_eq!(sat.status(), Some(false));
@@ -82,7 +91,7 @@ mod tests {
         sat.set_callbacks(Some(Timeout::new(0.2)));
         let result = sat.solve();
         let elapsed = started.elapsed().as_secs_f32();
-        if result == None {
+        if result.is_none() {
             assert!(0.1 < elapsed && elapsed < 0.3);
         } else {
             assert!(result == Some(false) && elapsed <= 0.3);
@@ -92,7 +101,7 @@ mod tests {
         sat.set_callbacks(Some(Timeout::new(0.5)));
         let result = sat.solve();
         let elapsed = started.elapsed().as_secs_f32();
-        if result == None {
+        if result.is_none() {
             assert!(0.4 < elapsed && elapsed < 0.6);
         } else {
             assert!(result == Some(false) && elapsed <= 0.6);
@@ -146,12 +155,12 @@ mod tests {
         path.push("pigeon5.cnf");
 
         let mut sat = pigeon_hole(5);
-        println!("writing DIMACS to: {:?}", path);
+        println!("writing DIMACS to: {path:?}");
         assert!(sat.write_dimacs(&path).is_ok());
         assert!(path.is_file());
         let num_vars = sat.max_variable();
 
-        println!("reading DIMACS from: {:?}", path);
+        println!("reading DIMACS from: {path:?}");
         let mut sat: Solver = Default::default();
         assert_eq!(sat.read_dimacs(&path), Ok(num_vars));
         assert_eq!(sat.solve(), Some(false));

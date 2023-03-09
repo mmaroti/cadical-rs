@@ -139,11 +139,7 @@ impl<C: Callbacks> Solver<C> {
 
     /// Solves the formula defined by the set of clauses under the given
     /// assumptions and the clause under the given temporary constraint.
-    pub fn solve_with<I, U>(
-        &mut self,
-        assumptions: I,
-        constraint: U,
-    ) -> Option<bool>
+    pub fn solve_with<I, U>(&mut self, assumptions: I, constraint: U) -> Option<bool>
     where
         I: Iterator<Item = i32>,
         U: Iterator<Item = i32>,
@@ -465,4 +461,3 @@ impl fmt::Display for Error {
         self.msg.fmt(f)
     }
 }
-
