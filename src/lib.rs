@@ -186,13 +186,13 @@ impl<C: Callbacks> Solver<C> {
     /// `None` if the formula is satisfied regardless of the value of the
     /// literal.
     #[inline]
-    pub fn value(&self, lit: i32) -> Option<bool> {
+    pub fn value(&mut self, lit: i32) -> Option<bool> {
         debug_assert!(self.status() == Some(true));
         debug_assert!(lit != 0 && lit != std::i32::MIN);
         let val = unsafe { ccadical_val(self.ptr, lit) };
-        if val == lit {
+        if val == lit.abs() {
             Some(true)
-        } else if val == -lit {
+        } else if val == -lit.abs() {
             Some(false)
         } else {
             None
@@ -203,7 +203,7 @@ impl<C: Callbacks> Solver<C> {
     /// in the proof of the unsatisfiability of the formula. The state of the
     /// solver must be `Some(false)`.
     #[inline]
-    pub fn failed(&self, lit: i32) -> bool {
+    pub fn failed(&mut self, lit: i32) -> bool {
         debug_assert!(self.status() == Some(false));
         debug_assert!(lit != 0 && lit != std::i32::MIN);
         let val = unsafe { ccadical_failed(self.ptr, lit) };
@@ -214,7 +214,7 @@ impl<C: Callbacks> Solver<C> {
     /// in the proof of the unsatisfiability of the formula. The state of the
     /// solver must be `Some(false)`.
     #[inline]
-    pub fn constraint_failed(&self) -> bool {
+    pub fn constraint_failed(&mut self) -> bool {
         debug_assert!(self.status() == Some(false));
         // debug_assert!(lit != 0 && lit != std::i32::MIN);
         let val = unsafe { ccadical_constraint_failed(self.ptr) };
@@ -232,7 +232,7 @@ impl<C: Callbacks> Solver<C> {
     /// assert_eq!(sat.num_clauses(), 1);
     /// ```
     #[inline]
-    pub fn max_variable(&self) -> i32 {
+    pub fn max_variable(&mut self) -> i32 {
         unsafe { ccadical_vars(self.ptr) }
     }
 

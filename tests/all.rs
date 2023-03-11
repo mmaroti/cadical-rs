@@ -18,13 +18,17 @@ mod tests {
             Some(true)
         );
         assert_eq!(sat.value(1), Some(false));
+        assert_eq!(sat.value(-1), Some(true));
         assert_eq!(sat.value(2), Some(true));
+        assert_eq!(sat.value(-2), Some(false));
         assert_eq!(
             sat.solve_with([-2].iter().copied(), iter::empty::<i32>()),
             Some(true)
         );
         assert_eq!(sat.value(1), Some(true));
+        assert_eq!(sat.value(-1), Some(false));
         assert_eq!(sat.value(2), Some(false));
+        assert_eq!(sat.value(-2), Some(true));
         assert_eq!(
             sat.solve_with([-1, -2].iter().copied(), iter::empty::<i32>()),
             Some(false)
