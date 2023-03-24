@@ -52,6 +52,7 @@ extern "C" {
     ) -> *const c_char;
     fn ccadical_configure(ptr: *mut c_void, name: *const c_char) -> c_int;
     fn ccadical_limit2(ptr: *mut c_void, name: *const c_char, limit: c_int) -> c_int;
+    fn ccadical_reserve(ptr: *mut c_void, min_max_var: c_int);
 }
 
 /// The CaDiCaL incremental SAT solver. The literals are unwrapped positive
@@ -331,6 +332,14 @@ impl<C: Callbacks> Solver<C> {
             Err(dimacs_error(err))
         }
     }
+
+    /// Increase the maximum variable index explicitly.
+    ///
+    /// This function makes sure that at least 'min_max_var' variables are initialized.
+    /// A call to this function sets the solver status to `None`.
+    pub fn reserve(&mut self, min_max_var: i32) {
+        unsafe { ccadical_reserve(self.ptr, min_max_var) }
+    }
 }
 
 fn dimacs_path(path: &Path) -> Result<CString, Error> {
@@ -576,5 +585,15 @@ mod tests {
         let res = sat.read_dimacs(path);
         assert!(res.is_err());
         println!("reading DIMACS error: {}", res.err().unwrap());
+    }
+
+    #[test]
+    fn test_reserve() {
+        let mut s: Solver = Default::default();
+        assert!(s.solve().unwrap());
+        assert_eq!(s.max_variable(), 0);
+        s.reserve(2);
+        assert!(s.solve().unwrap());
+        assert_eq!(s.max_variable(), 2);
     }
 }

@@ -35,4 +35,9 @@ extern "C"
   {
     return ((Wrapper *)wrapper)->solver->limit(name, val);
   }
+
+  void ccadical_reserve(CCaDiCaL *wrapper, int min_max_var = 0)
+  {
+    ((Wrapper *)wrapper)->solver->reserve(min_max_var);
+  }
 }
