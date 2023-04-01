@@ -175,4 +175,36 @@ mod tests {
         assert!(res.is_err());
         println!("reading DIMACS error: {}", res.err().unwrap());
     }
+
+    #[test]
+    fn solve_with_seed() {
+        for i in 0..=30 {
+            let seed = 1 << i;
+            println!("seed = {seed}");
+            let mut sat: Solver = Solver::new();
+            sat.set("seed", seed).unwrap();
+            assert!(sat.signature().starts_with("cadical-"));
+            assert_eq!(sat.status(), None);
+            // at least 1 is true
+            sat.add_clause([1, 2, 3]);
+
+            // sanity check
+            assert_eq!(sat.max_variable(), 3);
+            assert_eq!(sat.num_variables(), 3);
+            assert_eq!(sat.num_clauses(), 1);
+
+            // solve (must be sat)
+            assert_eq!(sat.solve(), Some(true));
+
+            // check results
+            assert_eq!(sat.value(1), Some(true));
+            assert_eq!(sat.value(-1), Some(false));
+
+            assert_eq!(sat.value(2), Some(true));
+            assert_eq!(sat.value(-2), Some(false));
+
+            assert_eq!(sat.value(3), Some(true));
+            assert_eq!(sat.value(-3), Some(false));
+        }
+    }
 }

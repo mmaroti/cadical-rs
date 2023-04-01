@@ -54,6 +54,7 @@ extern "C" {
     ) -> *const c_char;
     fn ccadical_configure(ptr: *mut c_void, name: *const c_char) -> c_int;
     fn ccadical_limit2(ptr: *mut c_void, name: *const c_char, limit: c_int) -> c_int;
+    fn ccadical_set_option(ptr: *mut c_void, name: *const c_char, val: c_int) -> c_int;
 }
 
 /// The CaDiCaL incremental SAT solver. The literals are unwrapped positive
@@ -78,6 +79,16 @@ impl<C: Callbacks> Solver<C> {
     pub fn new() -> Self {
         let ptr = unsafe { ccadical_init() };
         Self { ptr, cbs: None }
+    }
+
+    pub fn set(&mut self, name: &str, val: i32) -> Result<(), Error> {
+        let name = CString::new(name).map_err(|_| Error::new("invalid string"))?;
+        let valid = unsafe { ccadical_set_option(self.ptr, name.as_ptr(), val) };
+        if valid != 0 {
+            Ok(())
+        } else {
+            Err(Error::new("Unknown option."))
+        }
     }
 
     /// Constructs a new solver with one of the following pre-defined
