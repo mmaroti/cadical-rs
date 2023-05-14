@@ -16,6 +16,10 @@ use std::time::Instant;
 use std::{fmt, slice};
 
 extern "C" {
+    // ********************************************************************************************
+    // Since CaDiCal is written in C++, and rust bindings are easier to write for c, we
+    // use the C wrapper that CaDiCal provides. It is available in 'cadical/src/ccadical.h'
+    // ********************************************************************************************
     fn ccadical_signature() -> *const c_char;
     fn ccadical_init() -> *mut c_void;
     fn ccadical_release(ptr: *mut c_void);
@@ -38,9 +42,15 @@ extern "C" {
     fn ccadical_constrain(ptr: *mut c_void, lit: c_int);
     fn ccadical_constraint_failed(ptr: *mut c_void) -> c_int;
     fn ccadical_status(ptr: *mut c_void) -> c_int;
-    fn ccadical_vars(ptr: *mut c_void) -> c_int;
     fn ccadical_active(ptr: *mut c_void) -> i64;
     fn ccadical_irredundant(ptr: *mut c_void) -> i64;
+    fn ccadical_set_option(ptr: *mut c_void, name: *const c_char, val: c_int) -> c_int;
+    fn ccadical_simplify(ptr: *mut c_void) -> c_int;
+    // ********************************************************************************************
+    // The following functions are c++ functions that we translated into c++ in ccadical.cpp
+    // int ccadical_status(CCaDiCaL *wrapper)
+    // ********************************************************************************************
+    fn ccadical_vars(ptr: *mut c_void) -> c_int;
     fn ccadical_read_dimacs(
         ptr: *mut c_void,
         path: *const c_char,
@@ -54,7 +64,6 @@ extern "C" {
     ) -> *const c_char;
     fn ccadical_configure(ptr: *mut c_void, name: *const c_char) -> c_int;
     fn ccadical_limit2(ptr: *mut c_void, name: *const c_char, limit: c_int) -> c_int;
-    fn ccadical_set_option(ptr: *mut c_void, name: *const c_char, val: c_int) -> c_int;
 }
 
 /// The CaDiCaL incremental SAT solver. The literals are unwrapped positive
@@ -81,6 +90,7 @@ impl<C: Callbacks> Solver<C> {
         Self { ptr, cbs: None }
     }
 
+    /// set options for the solver, see ccadical.h for more info
     pub fn set(&mut self, name: &str, val: i32) -> Result<(), Error> {
         let name = CString::new(name).map_err(|_| Error::new("invalid string"))?;
         let valid = unsafe { ccadical_set_option(self.ptr, name.as_ptr(), val) };
@@ -88,6 +98,29 @@ impl<C: Callbacks> Solver<C> {
             Ok(())
         } else {
             Err(Error::new("Unknown option."))
+        }
+    }
+
+    /// This function executes 3 preprocessing rounds. It is
+    /// similar to 'solve' with 'limits ("preprocessing", rounds)' except that
+    /// no CDCL nor local search, nor lucky phases are executed.  The result
+    /// values are also the same:
+    /// 1. None=unknown
+    /// 2. Some(true)=satisfiable
+    /// 3. Some(false)=unsatisfiable
+    /// As 'solve' it resets current assumptions and limits before returning.
+    ///
+    ///   require (READY)
+    ///   ensure (UNKNOWN | SATISFIED | UNSATISFIED)
+    ///
+    pub fn simplify(&mut self) -> Option<bool> {
+        let r = unsafe { ccadical_simplify(self.ptr) };
+        if r == 10 {
+            Some(true)
+        } else if r == 20 {
+            Some(false)
+        } else {
+            None
         }
     }
 
