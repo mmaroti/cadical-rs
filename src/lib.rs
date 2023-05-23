@@ -46,6 +46,7 @@ extern "C" {
     fn ccadical_irredundant(ptr: *mut c_void) -> i64;
     fn ccadical_set_option(ptr: *mut c_void, name: *const c_char, val: c_int) -> c_int;
     fn ccadical_simplify(ptr: *mut c_void) -> c_int;
+    fn ccadical_freeze(ptr: *mut c_void, lit: c_int);
     // ********************************************************************************************
     // The following functions are c++ functions that we translated into c++ in ccadical.cpp
     // int ccadical_status(CCaDiCaL *wrapper)
@@ -139,6 +140,40 @@ impl<C: Callbacks> Solver<C> {
         } else {
             Err(Error::new("invalid config"))
         }
+    }
+
+    /// We have the following common reference counting functions, which avoid
+    /// to restore clauses but require substantial user guidance.  This was the
+    /// only way to use inprocessing in incremental SAT solving in Lingeling
+    /// (and before in MiniSAT's 'freeze' / 'thaw') and which did not use
+    /// automatic clause restoring.  In general this is slower than
+    /// restoring clauses and should not be used.
+    ///
+    /// In essence the user freezes variables which potentially are still
+    /// needed in clauses added or assumptions used after the next 'solve'
+    /// call.  As in Lingeling you can freeze a variable multiple times, but
+    /// then have to melt it the same number of times again in order to enable
+    /// variable eliminating on it etc.  The arguments can be literals
+    /// (negative indices) but conceptually variables are frozen.
+    ///
+    /// In the old way of doing things without restore you should not use a
+    /// variable incrementally (in 'add' or 'assume'), which was used before
+    /// and potentially could have been eliminated in a previous 'solve' call.
+    /// This can lead to spurious satisfying assignment.  In order to check
+    /// this API contract one can use the 'checkfrozen' option.  This has the
+    /// drawback that restoring clauses implicitly would fail with a fatal
+    /// error message even if in principle the solver could just restore
+    /// clauses. Thus this option is disabled by default.
+    ///
+    /// See our SAT'19 paper [FazekasBiereScholl-SAT'19] for more details.
+    ///
+    ///   require (VALID)
+    ///   ensure (VALID)
+    ///
+    #[inline]
+    pub fn freeze(&mut self, lit: i32) {
+        debug_assert!(lit != 0 && lit != std::i32::MIN);
+        unsafe { ccadical_freeze(self.ptr, lit) };
     }
 
     /// Returns the name and version of the CaDiCaL library.
