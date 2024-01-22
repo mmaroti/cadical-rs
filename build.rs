@@ -4,7 +4,21 @@
 //! https://doc.rust-lang.org/cargo/reference/build-scripts.html
 //! https://doc.rust-lang.org/cargo/reference/build-script-examples.html
 
+// ************************************************************************************************
+// use
+// ************************************************************************************************
+
 use std::{env, fs, path::Path, process::Command};
+
+// ************************************************************************************************
+// constants
+// ************************************************************************************************
+
+const CADICAL_PATH: &str = "cadical-b29a98e5f1fd93a3adb775a498a25b41e0cc70e7";
+
+// ************************************************************************************************
+// helper functions
+// ************************************************************************************************
 
 fn compile_using_cc() {
     let mut build = cc::Build::new();
@@ -17,7 +31,7 @@ fn compile_using_cc() {
         .define("NTRACING", None)
         .define("QUIET", None);
 
-    let version = std::fs::read_to_string("cadical/VERSION");
+    let version = std::fs::read_to_string(format!("{CADICAL_PATH}/VERSION"));
     let version = version.expect("missing cadical submodule");
     let version = format!("\"{}\"", version.trim());
     build.define("VERSION", version.as_ref());
@@ -38,22 +52,22 @@ fn compile_using_cc() {
     files.push("src/ccadical.cpp".to_string());
 
     // add cadical .cpp files
-    let dir_entries = fs::read_dir("cadical/src").unwrap();
+    let dir_entries = fs::read_dir(format!("{CADICAL_PATH}/src")).unwrap();
     for path in dir_entries {
         let dir_entry = path.unwrap();
         let path = dir_entry.path();
         let path_str = path.to_str().unwrap().to_string();
         if path_str.ends_with(".cpp")
             // mobical should be ignored
-            && (!path_str.contains("/mobical.cpp"))
+            && (!path_str.ends_with("/mobical.cpp"))
             // added later
-            && (!path_str.contains("/resources.cpp"))
+            && (!path_str.ends_with("/resources.cpp"))
             // added later
-            && (!path_str.contains("/lookahead.cpp")) 
+            && (!path_str.ends_with("/lookahead.cpp")) 
             // already added in src/ccadical.cpp
-            && (!path_str.contains("/ccadical.cpp")) 
+            && (!path_str.ends_with("/ccadical.cpp")) 
             // contains another main function
-            && (!path_str.contains("/cadical.cpp"))
+            && (!path_str.ends_with("/cadical.cpp"))
         {
             // eprintln!("Compiling path {}", path_str);
             files.push(path_str);
@@ -66,8 +80,8 @@ fn compile_using_cc() {
         files.push("src/msvc/resources.cpp".to_string());
         files.push("src/msvc/lookahead.cpp".to_string());
     } else {
-        files.push("cadical/src/resources.cpp".to_string());
-        files.push("cadical/src/lookahead.cpp".to_string());
+        files.push(format!("{CADICAL_PATH}/src/resources.cpp"));
+        files.push(format!("{CADICAL_PATH}/src/lookahead.cpp"));
     }
 
     // add files which will be compiled
@@ -118,27 +132,11 @@ fn _compile_using_cadical_script() {
     }
 }
 
+// ************************************************************************************************
+// Main build function
+// ************************************************************************************************
+
 fn main() -> std::io::Result<()> {
-    // build Cadical as instructed in it
-    // let output = if cfg!(target_os = "windows") {
-    //     Command::new("cmd")
-    //         .args(["/C", "echo hello"])
-    //         .output()
-    //         .expect("failed to execute process")
-    // } else {
-
-    // };
-
-    //
-
-    // .unwrap_or_else(|_| {
-    //     panic!(
-    //         "Failed to execute CaDiCal compilation command '{}'",
-    //         command_to_compile_cadical
-    //     )
-    // });
-
     compile_using_cc();
-
     Ok(())
 }

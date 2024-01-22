@@ -1,4 +1,4 @@
-#include "../cadical/src/ccadical.cpp"
+#include "../cadical-b29a98e5f1fd93a3adb775a498a25b41e0cc70e7/src/ccadical.cpp"
 
 // This files converts some of the C++ interface of cadical to C.
 // These functions are not available in the C interface of cadical.
