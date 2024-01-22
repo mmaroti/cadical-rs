@@ -4,9 +4,9 @@
 //! https://doc.rust-lang.org/cargo/reference/build-scripts.html
 //! https://doc.rust-lang.org/cargo/reference/build-script-examples.html
 
-use std::fs;
+use std::{env, fs, path::Path, process::Command};
 
-fn main() -> std::io::Result<()> {
+fn compile_using_cc() {
     let mut build = cc::Build::new();
     build
         .cpp(true)
@@ -43,8 +43,19 @@ fn main() -> std::io::Result<()> {
         let dir_entry = path.unwrap();
         let path = dir_entry.path();
         let path_str = path.to_str().unwrap().to_string();
-        if path_str.ends_with(".cpp") {
-            println!("file {}", path_str);
+        if path_str.ends_with(".cpp")
+            // mobical should be ignored
+            && (!path_str.contains("/mobical.cpp"))
+            // added later
+            && (!path_str.contains("/resources.cpp"))
+            // added later
+            && (!path_str.contains("/lookahead.cpp")) 
+            // already added in src/ccadical.cpp
+            && (!path_str.contains("/ccadical.cpp")) 
+            // contains another main function
+            && (!path_str.contains("/cadical.cpp"))
+        {
+            // eprintln!("Compiling path {}", path_str);
             files.push(path_str);
         }
     }
@@ -69,5 +80,65 @@ fn main() -> std::io::Result<()> {
 
     // compile
     build.compile("ccadical");
+}
+
+/// Not ready yet
+fn _compile_using_cadical_script() {
+    // change working director into cadical
+    let cadical_path = Path::new("./cadical");
+    let cd_result = env::set_current_dir(cadical_path).is_ok();
+
+    if !cd_result {
+        panic!(
+            "Failed to change working directory to {}!",
+            cadical_path.display()
+        );
+    }
+
+    // clean previous setup
+    let clean_command = "ls";
+    let clean_result = Command::new(clean_command)
+        .env("PATH", cadical_path)
+        .output();
+    if let Err(e) = clean_result {
+        panic!(
+            "Failed to execute CaDiCal clean command: '{}'\nThis error was received: {}",
+            clean_command, e
+        );
+    }
+
+    // run configuration and compilation command
+    let command = "./configure && make";
+    let comp_result = Command::new(command).output();
+    if let Err(e) = comp_result {
+        panic!(
+            "Failed to execute CaDiCal configuration & compilation command: '{}'\nThis error was received: {}",
+            command, e
+        );
+    }
+}
+
+fn main() -> std::io::Result<()> {
+    // build Cadical as instructed in it
+    // let output = if cfg!(target_os = "windows") {
+    //     Command::new("cmd")
+    //         .args(["/C", "echo hello"])
+    //         .output()
+    //         .expect("failed to execute process")
+    // } else {
+
+    // };
+
+    //
+
+    // .unwrap_or_else(|_| {
+    //     panic!(
+    //         "Failed to execute CaDiCal compilation command '{}'",
+    //         command_to_compile_cadical
+    //     )
+    // });
+
+    compile_using_cc();
+
     Ok(())
 }
