@@ -34,9 +34,8 @@ version and the `cpp-debug` feature of the library is enabled.
 
 ## Information for developers
 
-To update cadical version, simply run this command:
+To update cadical version, simply download a new version from:
 ```
-git rm cadical
-git submodule add  --force -b b29a98e5f1fd93a3adb775a498a25b41e0cc70e7 https://github.com/sirandreww/cadical.git
+https://github.com/sirandreww/cadical.git
 ```
-where `b29a98e5f1fd93a3adb775a498a25b41e0cc70e7` is replaced with the the commit tag you would like
+This is a fork of cadical that fixes a small issue with the C API of cadical.
