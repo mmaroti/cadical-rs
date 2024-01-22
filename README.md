@@ -1,4 +1,4 @@
-CaDiCaL SAT solver
+# CaDiCaL SAT solver
 ==================
 [![Build Status](https://app.travis-ci.com/mmaroti/cadical-rs.svg?branch=master)](https://app.travis-ci.com/github/mmaroti/cadical-rs)
 [![Crate](https://img.shields.io/crates/v/cadical)](https://crates.io/crates/cadical)
@@ -30,3 +30,12 @@ assert_eq!(sat.value(2), Some(true));
 The C++ library is build with assertions disabled and with optimization level
 3 by default. C++ assertions are enabled only when cargo is building a debug 
 version and the `cpp-debug` feature of the library is enabled.
+
+
+## Information for developers
+
+To update cadical version, simply run this command:
+```
+git submodule add  --force -b b29a98e5f1fd93a3adb775a498a25b41e0cc70e7 https://github.com/sirandreww/cadical.git
+```
+where `b29a98e5f1fd93a3adb775a498a25b41e0cc70e7` is replaced with the the commit tag you would like
