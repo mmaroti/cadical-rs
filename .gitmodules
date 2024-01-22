@@ -1,4 +1,4 @@
 [submodule "cadical"]
 	path = cadical
 	url = https://github.com/sirandreww/cadical.git
-	branch = master
+	branch = b29a98e5f1fd93a3adb775a498a25b41e0cc70e7
