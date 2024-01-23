@@ -91,6 +91,12 @@ fn compile_using_cc() {
     for file in files.iter() {
         println!("cargo:rerun-if-changed={file}");
     }
+    println!("cargo:rerun-if-env-changed=CC");
+    println!("cargo:rerun-if-env-changed=CFLAGS");
+    println!("cargo:rerun-if-env-changed=CXX");
+    println!("cargo:rerun-if-env-changed=CXXFLAGS");
+    println!("cargo:rerun-if-env-changed=CXXSTDLIB");
+    println!("cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS");
 
     // compile
     build.compile("ccadical");
