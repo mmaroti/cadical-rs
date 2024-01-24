@@ -31,13 +31,15 @@ fn _compile_using_cc() {
 
     // add the flags used by cadical 'configure: compiling with 'g++ -Wall -Wextra -O3 -DNDEBUG -DNBUILD'
 
-    // this adds -Wall
+    // this adds -Wall and -Wextra
     build.warnings(true);
 
-    // .define("NBUILD", None)
-    // .define("NUNLOCKED", None)
-    // .define("NTRACING", None)
-    // .define("QUIET", None);
+    // define pre compilation variables
+    build.define("NDEBUG", None);
+    build.define("NBUILD", None);
+    build.define("NUNLOCKED", None);
+    build.define("NTRACING", None);
+    build.define("QUIET", None);
 
     let version = std::fs::read_to_string(format!("{CADICAL_PATH}/VERSION"));
     let version = version.expect("missing cadical submodule");
