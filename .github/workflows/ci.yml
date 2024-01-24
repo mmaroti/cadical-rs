@@ -129,9 +129,22 @@ jobs:
   # Windows job
   #################################################################################################
 
-  windows:
-    name: Windows
-    runs-on: windows-latest
+  # windows:
+  #   name: Windows
+  #   runs-on: windows-latest
+  #   timeout-minutes: 4
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #     - uses: dtolnay/rust-toolchain@stable
+  #     - run: cargo test --verbose
+
+  #################################################################################################
+  # Windows job
+  #################################################################################################
+
+  mac-os:
+    name: Mac-OS
+    runs-on: macos-latest
     timeout-minutes: 4
     steps:
       - uses: actions/checkout@v3
