@@ -69,18 +69,20 @@ cargo test
 
 ### Using Clang
 
-Run these commands in order.
+First you should get the C++ library that works with Clang using one of these commands (not sure which specific one, but the first should work):
 ```
 sudo apt install libc++-dev
 sudo apt install libc++abi-dev
 sudo apt install libstdc++-dev
-sudo apt install lld
-sudo apt install ndk-multilib
+```
+
+Then run these commands in order:
+```
 cargo clean
 unset CRATE_CC_NO_DEFAULTS
+unset CXXFLAGS
 unset CXXSTDLIB
 unset RUSTFLAGS
-export CXXFLAGS="-stdlib=libc++"
 export CXX=clang++
 cargo test
 ```
