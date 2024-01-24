@@ -27,7 +27,7 @@ fn _compile_using_cc() {
     build.cpp(true).flag_if_supported("-std=c++11");
 
     // disable default flags
-    build.no_default_flags(true);
+    // build.no_default_flags(true);
 
     // add the flags used by cadical 'configure: compiling with 'g++ -Wall -Wextra -O3 -DNDEBUG -DNBUILD'
 
