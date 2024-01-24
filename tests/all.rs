@@ -33,8 +33,8 @@ mod tests {
             sat.solve_with([-1, -2].iter().copied(), iter::empty::<i32>()),
             Some(false)
         );
-        assert_eq!(sat.failed(-1), true);
-        assert_eq!(sat.failed(-2), true);
+        assert!(sat.failed(-1));
+        assert!(sat.failed(-2));
         assert_eq!(sat.status(), Some(false));
         sat.add_clause([4, 5]);
         assert_eq!(sat.status(), None);
@@ -45,9 +45,9 @@ mod tests {
             sat.solve_with([-1, -2, -4].iter().copied(), iter::empty::<i32>()),
             Some(false)
         );
-        assert_eq!(sat.failed(-1), true);
-        assert_eq!(sat.failed(-2), true);
-        assert_eq!(sat.failed(-4), false);
+        assert!(sat.failed(-1));
+        assert!(sat.failed(-2));
+        assert!(!sat.failed(-4));
     }
 
     #[test]
@@ -70,18 +70,18 @@ mod tests {
 
     fn pigeon_hole(num: i32) -> Solver {
         let mut sat: Solver = Solver::new();
-        for i in 0..(num + 1) {
+        for i in 0..=num {
             sat.add_clause((0..num).map(|j| 1 + i * num + j));
         }
-        for i1 in 0..(num + 1) {
-            for i2 in 0..(num + 1) {
+        for i1 in 0..=num {
+            for i2 in 0..=num {
                 if i1 == i2 {
                     continue;
                 }
                 for j in 0..num {
                     let l1 = 1 + i1 * num + j;
                     let l2 = 1 + i2 * num + j;
-                    sat.add_clause([-l1, -l2])
+                    sat.add_clause([-l1, -l2]);
                 }
             }
         }

@@ -65,6 +65,7 @@ cargo clean
 unset CRATE_CC_NO_DEFAULTS
 unset CXXFLAGS
 unset CXXSTDLIB
+unset RUSTFLAGS
 export CXX=/usr/bin/g++
 cargo test
 ```
@@ -73,11 +74,16 @@ cargo test
 
 Run these commands in order.
 ```
-sudo apt install libc++abi-dev libstdc++-11-dev
+sudo apt install libc++-dev
+sudo apt install libc++abi-dev
+sudo apt install libstdc++-dev
+sudo apt install lld
+sudo apt install ndk-multilib
 cargo clean
 unset CRATE_CC_NO_DEFAULTS
-export CXXFLAGS="-stdlib=libstdc++"
 unset CXXSTDLIB
+unset RUSTFLAGS
+export CXXFLAGS="-stdlib=libc++"
 export CXX=clang++
 cargo test
 ```

@@ -1,8 +1,8 @@
 //! Build script for ccadical.
 //! This script is responsible for compiling the cadical C++ library.
 //! For more information:
-//! https://doc.rust-lang.org/cargo/reference/build-scripts.html
-//! https://doc.rust-lang.org/cargo/reference/build-script-examples.html
+//! <https://doc.rust-lang.org/cargo/reference/build-scripts.html>
+//! <https://doc.rust-lang.org/cargo/reference/build-script-examples.html>
 
 // ************************************************************************************************
 // use
@@ -17,10 +17,10 @@ use std::{env, fs, path::Path, process::Command};
 const CADICAL_PATH: &str = "cadical-b29a98e5f1fd93a3adb775a498a25b41e0cc70e7";
 
 // ************************************************************************************************
-// helper functions
+// Compile using cc crate
 // ************************************************************************************************
 
-fn compile_using_cc() {
+fn _compile_using_cc() {
     let mut build = cc::Build::new();
     build
         .cpp(true)
@@ -57,7 +57,9 @@ fn compile_using_cc() {
         let dir_entry = path.unwrap();
         let path = dir_entry.path();
         let path_str = path.to_str().unwrap().to_string();
-        if path_str.ends_with(".cpp")
+        if std::path::Path::new(&path_str)
+                     .extension()
+                     .map_or(false, |ext| ext.eq_ignore_ascii_case("cpp"))
             // mobical should be ignored
             && (!path_str.ends_with("/mobical.cpp"))
             // added later
@@ -88,7 +90,7 @@ fn compile_using_cc() {
     build.files(files.iter());
 
     // tell the compiler to recompile if any of the files changed
-    for file in files.iter() {
+    for file in &files {
         println!("cargo:rerun-if-changed={file}");
     }
     println!("cargo:rerun-if-env-changed=CC");
@@ -102,47 +104,64 @@ fn compile_using_cc() {
     build.compile("ccadical");
 }
 
-/// Not ready yet
+// ************************************************************************************************
+// Compile using the ./config && make script
+// ************************************************************************************************
+
+fn _run_command(command: &mut Command) {
+    let command_str = format!("{command:?}");
+    match command.output() {
+        Ok(_) => println!("cargo:warning=Command {command_str} was successful"),
+        Err(e) => {
+            panic!("Failed to execute command:\n{}\nERROR:\n{}", command_str, e);
+        }
+    }
+}
+
+fn _change_directory(path: &str) {
+    match env::set_current_dir(Path::new(path)) {
+        Ok(()) => println!(
+            "cargo:warning=Changed working directory to {}",
+            env::current_dir().unwrap().display()
+        ),
+        Err(e) => panic!("Failed to change directory to:\n{}\nERROR:\n{}", path, e),
+    }
+}
+
+fn _make_dir(dir: &str) {
+    match fs::create_dir_all(dir) {
+        Ok(()) => println!("cargo:warning=Created directory {dir}"),
+        Err(e) => panic!("Failed to create directory:\n{}\nERROR:\n{}", dir, e),
+    }
+}
+
+/// Not ready yet, mainly there are issues with using cargo clean to clean the build.
+/// The problem is that cargo clean will delete the target directory,
+/// which will does not delete the cadical build. Both solutions of either performing
+/// "make clean" on build or making the script compile into target ran into issues.
 fn _compile_using_cadical_script() {
-    // change working director into cadical
-    let cadical_path = Path::new("./cadical");
-    let cd_result = env::set_current_dir(cadical_path).is_ok();
+    // always recompile when anything changes
+    // println!("cargo:rerun-if-changed=/{}", CADICAL_PATH);
 
-    if !cd_result {
-        panic!(
-            "Failed to change working directory to {}!",
-            cadical_path.display()
-        );
-    }
+    // change working directory to cadical
+    _change_directory(format!("./{CADICAL_PATH}").as_ref());
 
-    // clean previous setup
-    let clean_command = "ls";
-    let clean_result = Command::new(clean_command)
-        .env("PATH", cadical_path)
-        .output();
-    if let Err(e) = clean_result {
-        panic!(
-            "Failed to execute CaDiCal clean command: '{}'\nThis error was received: {}",
-            clean_command, e
-        );
-    }
+    // clean previous build
+    // _run_command(Command::new("make").arg("clean"));
 
-    // run configuration and compilation command
-    let command = "./configure && make";
-    let comp_result = Command::new(command).output();
-    if let Err(e) = comp_result {
-        panic!(
-            "Failed to execute CaDiCal configuration & compilation command: '{}'\nThis error was received: {}",
-            command, e
-        );
-    }
+    // configure makefile
+    _run_command(&mut Command::new("./configure"));
+
+    // compile
+    _run_command(&mut Command::new("make"));
+
+    panic!();
 }
 
 // ************************************************************************************************
 // Main build function
 // ************************************************************************************************
 
-fn main() -> std::io::Result<()> {
-    compile_using_cc();
-    Ok(())
+fn main() {
+    _compile_using_cc();
 }

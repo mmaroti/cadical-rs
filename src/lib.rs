@@ -463,7 +463,7 @@ impl<C: Callbacks> Drop for Solver<C> {
     }
 }
 
-/// CaDiCaL does not use thread local variables, so it is possible to
+/// `CaDiCaL` does not use thread local variables, so it is possible to
 /// move it between threads. However it cannot be used queried concurrently
 /// (for example getting the value from multiple threads at once), so we
 /// do not implement `Sync`.
@@ -502,6 +502,7 @@ pub struct Timeout {
 
 impl Timeout {
     /// Creates a new timeout structure with the given timeout value.
+    #[must_use]
     pub fn new(timeout: f32) -> Self {
         Timeout {
             started: Instant::now(),
@@ -529,6 +530,7 @@ pub struct Error {
 }
 
 impl Error {
+    #[must_use]
     pub fn new(msg: &str) -> Self {
         Error {
             msg: msg.to_string(),

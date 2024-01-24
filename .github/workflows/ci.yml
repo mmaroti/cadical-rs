@@ -1,0 +1,135 @@
+# More information can be found here:
+# https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions
+
+###################################################################################################
+# Workflow name
+###################################################################################################
+
+# standard name for CI workflow
+name: CI
+
+###################################################################################################
+# When to run the workflow
+###################################################################################################
+
+# perform CI only on main branch
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+
+###################################################################################################
+# environment variables
+###################################################################################################
+
+# more information can be found at https://doc.rust-lang.org/cargo/reference/environment-variables.html
+env:
+  # Controls whether or not colored output is used in the terminal.
+  CARGO_TERM_COLOR: always # always: Always display colors.
+  # Make sure CI fails on all warnings, including Clippy lints
+  # RUSTFLAGS: "-Dwarnings" this cannot be enabled since some libs have warnings
+
+###################################################################################################
+# jobs
+###################################################################################################
+
+jobs:
+
+  #################################################################################################
+  # Sanity job
+  #################################################################################################
+
+  # These 4 were grouped together because they all require installation of dependencies
+  fmt-check-clippy-build:
+    # job name will be displayed in the GitHub UI
+    name: Format / Check / Clippy / Docs / Test
+    # job will run on ubuntu-latest
+    runs-on: ubuntu-latest
+    # job timeout, shouldn't take longer really
+    timeout-minutes: 10
+    # job steps
+    steps:
+      # This action checks-out your repository under $GITHUB_WORKSPACE, so your workflow can access it.
+      - uses: actions/checkout@v3
+      # This GitHub Action installs a Rust toolchain using rustup. It is designed for one-line concise usage and good defaults.
+      - uses: dtolnay/rust-toolchain@stable
+      # used by popular Rust projects to check formatting
+      - run: cargo fmt --all --check
+      # check is a weaker version of clippy but it is faster
+      - run: cargo check --all-targets --all-features
+      # source https://doc.rust-lang.org/nightly/clippy/continuous_integration/github_actions.html
+      - run: cargo clippy --all-targets --all-features -- -D warnings
+      # A more pedantic version that should probably be used in the future, but it is too much for now
+      # - run: cargo clippy --all-targets --all-features -- -D warnings -Dclippy::all -Dclippy::pedantic
+      # try and build the project
+      - run: cargo build --verbose
+      # source https://github.com/dtolnay/syn/blob/master/.github/workflows/ci.yml
+      - run: cargo test --all-features --doc
+      - run: cargo doc --all-features
+      # run test suite
+      - run: cargo test --verbose
+      
+
+  #################################################################################################
+  # test docs job
+  #################################################################################################
+
+  # test-docs:
+  #   name: Test Documentation
+  #   # run only if the previous job succeeded
+  #   # needs: fmt-check-clippy-build
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 5
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #     - uses: dtolnay/rust-toolchain@stable
+  #     # source https://github.com/dtolnay/syn/blob/master/.github/workflows/ci.yml
+  #     - run: cargo test --all-features --doc
+  #     - run: cargo doc --all-features
+
+  #################################################################################################
+  # test job
+  #################################################################################################
+
+  # test:
+  #   name: Test
+  #   # needs: test-docs
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 10
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #     - uses: dtolnay/rust-toolchain@stable
+  #     - run: cargo test --verbose
+
+  #################################################################################################
+  # Miri job
+  #################################################################################################
+
+  # miri:
+  #   name: Miri
+  #   needs: test
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 20
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #     # source https://github.com/dtolnay/anyhow/blob/master/.github/workflows/ci.yml
+  #     - uses: dtolnay/rust-toolchain@miri
+  #     - run: cargo miri setup
+  #     - run: cargo miri test --test miri
+  #       env:
+  #         MIRIFLAGS: -Zmiri-strict-provenance
+
+  #################################################################################################
+  # Windows job
+  #################################################################################################
+
+#   windows:
+#     name: Windows
+#     runs-on: windows-latest
+#     timeout-minutes: 10
+#     steps:
+#       - uses: actions/checkout@v3
+#       - uses: dtolnay/rust-toolchain@stable
+#       - run: cargo test --verbose
