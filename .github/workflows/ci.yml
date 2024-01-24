@@ -48,7 +48,7 @@ jobs:
     # job will run on ubuntu-latest
     runs-on: ubuntu-latest
     # job timeout, shouldn't take longer really
-    timeout-minutes: 10
+    timeout-minutes: 5
     # job steps
     steps:
       # This action checks-out your repository under $GITHUB_WORKSPACE, so your workflow can access it.
@@ -68,6 +68,10 @@ jobs:
       # source https://github.com/dtolnay/syn/blob/master/.github/workflows/ci.yml
       - run: cargo test --all-features --doc
       - run: cargo doc --all-features
+      # run test suite
+      - run: cargo test --verbose
+      # test cargo clean
+      - run: cargo clean --verbose
       # run test suite
       - run: cargo test --verbose
       
@@ -128,7 +132,7 @@ jobs:
   windows:
     name: Windows
     runs-on: windows-latest
-    timeout-minutes: 10
+    timeout-minutes: 4
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable

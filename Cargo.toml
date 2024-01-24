@@ -5,12 +5,12 @@ version = "0.1.14"
 license = "MIT"
 authors = ["Miklos Maroti <mmaroti@gmail.com>"]
 edition = "2018"
-repository = "https://github.com/mmaroti/cadical-rs/"
+repository = "https://github.com/sirandreww/cadical-rs.git"
 keywords = ["SAT", "solver", "logic", "satisfiability", "minisat"]
 categories = ["mathematics", "science"]
 readme = "README.md"
-links = "ccadical"
-exclude = ["cadical/src/makefile", "cadical/scripts", "cadical/test"]
+links = "cadical"
+exclude = ["cadical-b29a98e5f1fd93a3adb775a498a25b41e0cc70e7/src/makefile", "cadical-b29a98e5f1fd93a3adb775a498a25b41e0cc70e7/scripts", "cadical-b29a98e5f1fd93a3adb775a498a25b41e0cc70e7/test"]
 
 [build-dependencies]
 cc = { version = "1.0", features = ["parallel"] }
