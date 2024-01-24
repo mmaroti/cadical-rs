@@ -110,10 +110,8 @@ fn _compile_using_cc() {
     println!("cargo:rerun-if-env-changed=CXXSTDLIB");
     println!("cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS");
 
-    // link the standard library if needed
-    if build.get_compiler().is_like_gnu() {
-        // build.cpp_set_stdlib("stdc++");
-    } else if build.get_compiler().is_like_clang() {
+    // link the standard library if needed (this fixes errors when using Clang)
+    if build.get_compiler().is_like_clang() {
         build.cpp_set_stdlib("c++");
     }
 

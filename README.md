@@ -42,7 +42,7 @@ This is a fork of cadical that fixes a small issue with the C API of cadical.
 Then paste the downloaded to replace `/cadical` with the new version using the same directory name.
 
 
-## Using different C++ compilers
+## Using different C++ compilers and linkers
 
 To compile the project you need to have a C++ compiler in order to compile CaDiCal.
 To set the compiler certain environment variables must be set before trying to compile.
@@ -87,3 +87,20 @@ export CXX=clang++
 cargo test
 ```
 
+### Using LLD
+
+First get the linker using:
+```
+sudo apt install lld
+```
+
+Then run these commands in order:
+```
+cargo clean
+unset CRATE_CC_NO_DEFAULTS
+unset CXXFLAGS
+unset CXXSTDLIB
+export RUSTFLAGS="-C link-arg=-fuse-ld=lld"
+export CXX=g++
+cargo test
+```
