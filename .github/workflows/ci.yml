@@ -15,9 +15,9 @@ name: CI
 # perform CI only on main branch
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "master" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "master" ]
 
 
 ###################################################################################################
