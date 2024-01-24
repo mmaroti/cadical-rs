@@ -10,7 +10,7 @@ keywords = ["SAT", "solver", "logic", "satisfiability", "minisat"]
 categories = ["mathematics", "science"]
 readme = "README.md"
 links = "cadical"
-exclude = ["cadical-b29a98e5f1fd93a3adb775a498a25b41e0cc70e7/src/makefile", "cadical-b29a98e5f1fd93a3adb775a498a25b41e0cc70e7/scripts", "cadical-b29a98e5f1fd93a3adb775a498a25b41e0cc70e7/test"]
+exclude = ["cadical/src/makefile", "cadical/scripts", "cadical/test"]
 
 [build-dependencies]
 cc = { version = "1.0", features = ["parallel"] }

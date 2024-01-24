@@ -38,12 +38,9 @@ To update cadical version, simply download a new version from:
 ```
 https://github.com/sirandreww/cadical.git
 ```
-This is a fork of cadical that fixes a small issue with the C API of cadical.
+This is a fork of cadical that fixes a small issue with the C API of cadical. 
+Then paste the downloaded to replace `/cadical` with the new version using the same directory name.
 
-Then:
-1. Paste the downloaded to replace `cadical-b29a98e5f1fd93a3adb775a498a25b41e0cc70e7`
-2. Update `CADICAL_PATH` in `build.rs`
-3. Update include in `src/ccadical.cpp`
 
 ## Using different C++ compilers
 

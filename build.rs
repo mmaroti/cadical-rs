@@ -14,7 +14,7 @@ use std::{env, fs, path::Path, process::Command};
 // constants
 // ************************************************************************************************
 
-const CADICAL_PATH: &str = "cadical-b29a98e5f1fd93a3adb775a498a25b41e0cc70e7";
+const CADICAL_PATH: &str = "cadical";
 
 // ************************************************************************************************
 // Compile using cc crate
@@ -22,14 +22,22 @@ const CADICAL_PATH: &str = "cadical-b29a98e5f1fd93a3adb775a498a25b41e0cc70e7";
 
 fn _compile_using_cc() {
     let mut build = cc::Build::new();
-    build
-        .cpp(true)
-        .flag_if_supported("-std=c++11")
-        .warnings(true)
-        .define("NBUILD", None)
-        .define("NUNLOCKED", None)
-        .define("NTRACING", None)
-        .define("QUIET", None);
+
+    // set to c++
+    build.cpp(true).flag_if_supported("-std=c++11");
+
+    // disable default flags
+    build.no_default_flags(true);
+
+    // add the flags used by cadical 'configure: compiling with 'g++ -Wall -Wextra -O3 -DNDEBUG -DNBUILD'
+
+    // this adds -Wall
+    build.warnings(true);
+
+    // .define("NBUILD", None)
+    // .define("NUNLOCKED", None)
+    // .define("NTRACING", None)
+    // .define("QUIET", None);
 
     let version = std::fs::read_to_string(format!("{CADICAL_PATH}/VERSION"));
     let version = version.expect("missing cadical submodule");
