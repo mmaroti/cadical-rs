@@ -125,11 +125,11 @@ jobs:
   # Windows job
   #################################################################################################
 
-#   windows:
-#     name: Windows
-#     runs-on: windows-latest
-#     timeout-minutes: 10
-#     steps:
-#       - uses: actions/checkout@v3
-#       - uses: dtolnay/rust-toolchain@stable
-#       - run: cargo test --verbose
+  windows:
+    name: Windows
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --verbose
