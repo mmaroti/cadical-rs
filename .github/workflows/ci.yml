@@ -179,4 +179,19 @@ jobs:
       - run: export RUSTFLAGS="-C link-arg=-fuse-ld=lld"
       - run: cargo test --verbose
 
+  #################################################################################################
+  # Chainging linker entirely
+  #################################################################################################
+
+  chainging-linker-entirely:
+    name: Chainging linker entirely
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+      - run: export RUSTFLAGS="-C linker=g++"
+      - run: export CXX=g++
+      - run: cargo test --verbose
+
 

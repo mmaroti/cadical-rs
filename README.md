@@ -104,3 +104,19 @@ export RUSTFLAGS="-C link-arg=-fuse-ld=lld"
 export CXX=g++
 cargo test
 ```
+
+### Using g++ for linking
+
+There are situations, when runing with a different g++ compiler than the one that `PATH` points to where the C++ standard library would not be found.
+To fix this, you need to tell rust compiler to link with the same version directly.
+
+Run these commands in order:
+```
+cargo clean
+unset CRATE_CC_NO_DEFAULTS
+unset CXXFLAGS
+unset CXXSTDLIB
+export RUSTFLAGS="-C linker=g++"
+export CXX=g++
+cargo test
+```
