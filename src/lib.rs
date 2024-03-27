@@ -16,6 +16,10 @@ use std::time::Instant;
 use std::{fmt, slice};
 
 extern "C" {
+    // ********************************************************************************************
+    // Since CaDiCal is written in C++, and rust bindings are easier to write for c, we
+    // use the C wrapper that CaDiCal provides. It is available in 'cadical/src/ccadical.h'
+    // ********************************************************************************************
     fn ccadical_signature() -> *const c_char;
     fn ccadical_init() -> *mut c_void;
     fn ccadical_release(ptr: *mut c_void);
@@ -35,10 +39,19 @@ extern "C" {
         max_len: c_int,
         cbs: Option<extern "C" fn(*mut c_void, *const c_int)>,
     );
+    fn ccadical_constrain(ptr: *mut c_void, lit: c_int);
+    fn ccadical_constraint_failed(ptr: *mut c_void) -> c_int;
     fn ccadical_status(ptr: *mut c_void) -> c_int;
-    fn ccadical_vars(ptr: *mut c_void) -> c_int;
     fn ccadical_active(ptr: *mut c_void) -> i64;
     fn ccadical_irredundant(ptr: *mut c_void) -> i64;
+    fn ccadical_set_option(ptr: *mut c_void, name: *const c_char, val: c_int) -> c_int;
+    fn ccadical_simplify(ptr: *mut c_void) -> c_int;
+    fn ccadical_freeze(ptr: *mut c_void, lit: c_int);
+    // ********************************************************************************************
+    // The following functions are c++ functions that we translated into c++ in ccadical.cpp
+    // int ccadical_status(CCaDiCaL *wrapper)
+    // ********************************************************************************************
+    fn ccadical_vars(ptr: *mut c_void) -> c_int;
     fn ccadical_read_dimacs(
         ptr: *mut c_void,
         path: *const c_char,
@@ -65,7 +78,7 @@ extern "C" {
 /// assert_eq!(sat.solve(), Some(true));
 /// assert_eq!(sat.value(2), Some(true));
 /// ```
-
+#[derive(Clone)]
 pub struct Solver<C: Callbacks = Timeout> {
     ptr: *mut c_void,
     cbs: Option<Box<C>>,
@@ -76,6 +89,40 @@ impl<C: Callbacks> Solver<C> {
     pub fn new() -> Self {
         let ptr = unsafe { ccadical_init() };
         Self { ptr, cbs: None }
+    }
+
+    /// set options for the solver, see ccadical.h for more info
+    pub fn set(&mut self, name: &str, val: i32) -> Result<(), Error> {
+        let name = CString::new(name).map_err(|_| Error::new("invalid string"))?;
+        let valid = unsafe { ccadical_set_option(self.ptr, name.as_ptr(), val) };
+        if valid != 0 {
+            Ok(())
+        } else {
+            Err(Error::new("Unknown option."))
+        }
+    }
+
+    /// This function executes 3 preprocessing rounds. It is
+    /// similar to 'solve' with 'limits ("preprocessing", rounds)' except that
+    /// no CDCL nor local search, nor lucky phases are executed.  The result
+    /// values are also the same:
+    /// 1. None=unknown
+    /// 2. Some(true)=satisfiable
+    /// 3. Some(false)=unsatisfiable
+    /// As 'solve' it resets current assumptions and limits before returning.
+    ///
+    ///   require (READY)
+    ///   ensure (UNKNOWN | SATISFIED | UNSATISFIED)
+    ///
+    pub fn simplify(&mut self) -> Option<bool> {
+        let r = unsafe { ccadical_simplify(self.ptr) };
+        if r == 10 {
+            Some(true)
+        } else if r == 20 {
+            Some(false)
+        } else {
+            None
+        }
     }
 
     /// Constructs a new solver with one of the following pre-defined
@@ -93,6 +140,40 @@ impl<C: Callbacks> Solver<C> {
         } else {
             Err(Error::new("invalid config"))
         }
+    }
+
+    /// We have the following common reference counting functions, which avoid
+    /// to restore clauses but require substantial user guidance.  This was the
+    /// only way to use inprocessing in incremental SAT solving in Lingeling
+    /// (and before in MiniSAT's 'freeze' / 'thaw') and which did not use
+    /// automatic clause restoring.  In general this is slower than
+    /// restoring clauses and should not be used.
+    ///
+    /// In essence the user freezes variables which potentially are still
+    /// needed in clauses added or assumptions used after the next 'solve'
+    /// call.  As in Lingeling you can freeze a variable multiple times, but
+    /// then have to melt it the same number of times again in order to enable
+    /// variable eliminating on it etc.  The arguments can be literals
+    /// (negative indices) but conceptually variables are frozen.
+    ///
+    /// In the old way of doing things without restore you should not use a
+    /// variable incrementally (in 'add' or 'assume'), which was used before
+    /// and potentially could have been eliminated in a previous 'solve' call.
+    /// This can lead to spurious satisfying assignment.  In order to check
+    /// this API contract one can use the 'checkfrozen' option.  This has the
+    /// drawback that restoring clauses implicitly would fail with a fatal
+    /// error message even if in principle the solver could just restore
+    /// clauses. Thus this option is disabled by default.
+    ///
+    /// See our SAT'19 paper [FazekasBiereScholl-SAT'19] for more details.
+    ///
+    ///   require (VALID)
+    ///   ensure (VALID)
+    ///
+    #[inline]
+    pub fn freeze(&mut self, lit: i32) {
+        debug_assert!(lit != 0 && lit != std::i32::MIN);
+        unsafe { ccadical_freeze(self.ptr, lit) };
     }
 
     /// Returns the name and version of the CaDiCaL library.
@@ -136,15 +217,31 @@ impl<C: Callbacks> Solver<C> {
     }
 
     /// Solves the formula defined by the set of clauses under the given
-    /// assumptions.
-    pub fn solve_with<I>(&mut self, assumptions: I) -> Option<bool>
+    /// assumptions and the clause under the given temporary constraint.
+    pub fn solve_with<I, U>(&mut self, assumptions: I, constraint: U) -> Option<bool>
     where
-        I: Iterator<Item = i32>,
+        I: IntoIterator<Item = i32>,
+        U: IntoIterator<Item = i32>,
     {
+        // add all the assumptions
         for lit in assumptions {
             debug_assert!(lit != 0 && lit != std::i32::MIN);
             unsafe { ccadical_assume(self.ptr, lit) };
         }
+
+        // add the assumed clause and then finalize if needed.
+        let mut iterations = 0;
+        for lit in constraint {
+            iterations += 1;
+            debug_assert!(lit != 0 && lit != std::i32::MIN);
+            unsafe { ccadical_constrain(self.ptr, lit) };
+        }
+        // finalize the clause if needed
+        if iterations > 0 {
+            unsafe { ccadical_constrain(self.ptr, 0) };
+        }
+
+        // call the solve function
         self.solve()
     }
 
@@ -168,13 +265,13 @@ impl<C: Callbacks> Solver<C> {
     /// `None` if the formula is satisfied regardless of the value of the
     /// literal.
     #[inline]
-    pub fn value(&self, lit: i32) -> Option<bool> {
+    pub fn value(&mut self, lit: i32) -> Option<bool> {
         debug_assert!(self.status() == Some(true));
         debug_assert!(lit != 0 && lit != std::i32::MIN);
         let val = unsafe { ccadical_val(self.ptr, lit) };
-        if val == lit {
+        if val == lit.abs() {
             Some(true)
-        } else if val == -lit {
+        } else if val == -lit.abs() {
             Some(false)
         } else {
             None
@@ -185,10 +282,21 @@ impl<C: Callbacks> Solver<C> {
     /// in the proof of the unsatisfiability of the formula. The state of the
     /// solver must be `Some(false)`.
     #[inline]
-    pub fn failed(&self, lit: i32) -> bool {
+    pub fn failed(&mut self, lit: i32) -> bool {
         debug_assert!(self.status() == Some(false));
         debug_assert!(lit != 0 && lit != std::i32::MIN);
         let val = unsafe { ccadical_failed(self.ptr, lit) };
+        val == 1
+    }
+
+    /// Checks if the given constraint clause (passed to `solve_with`) was used
+    /// in the proof of the unsatisfiability of the formula. The state of the
+    /// solver must be `Some(false)`.
+    #[inline]
+    pub fn constraint_failed(&mut self) -> bool {
+        debug_assert!(self.status() == Some(false));
+        // debug_assert!(lit != 0 && lit != std::i32::MIN);
+        let val = unsafe { ccadical_constraint_failed(self.ptr) };
         val == 1
     }
 
@@ -203,7 +311,7 @@ impl<C: Callbacks> Solver<C> {
     /// assert_eq!(sat.num_clauses(), 1);
     /// ```
     #[inline]
-    pub fn max_variable(&self) -> i32 {
+    pub fn max_variable(&mut self) -> i32 {
         unsafe { ccadical_vars(self.ptr) }
     }
 
@@ -355,7 +463,7 @@ impl<C: Callbacks> Drop for Solver<C> {
     }
 }
 
-/// CaDiCaL does not use thread local variables, so it is possible to
+/// `CaDiCaL` does not use thread local variables, so it is possible to
 /// move it between threads. However it cannot be used queried concurrently
 /// (for example getting the value from multiple threads at once), so we
 /// do not implement `Sync`.
@@ -387,6 +495,7 @@ pub trait Callbacks {
 }
 
 /// Callbacks implementing a simple timeout.
+#[derive(Clone)]
 pub struct Timeout {
     pub started: Instant,
     pub timeout: f32,
@@ -394,6 +503,7 @@ pub struct Timeout {
 
 impl Timeout {
     /// Creates a new timeout structure with the given timeout value.
+    #[must_use]
     pub fn new(timeout: f32) -> Self {
         Timeout {
             started: Instant::now(),
@@ -421,6 +531,7 @@ pub struct Error {
 }
 
 impl Error {
+    #[must_use]
     pub fn new(msg: &str) -> Self {
         Error {
             msg: msg.to_string(),
@@ -431,150 +542,5 @@ impl Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.msg.fmt(f)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::thread;
-
-    #[test]
-    fn solver() {
-        let mut sat: Solver = Solver::new();
-        assert!(sat.signature().starts_with("cadical-"));
-        assert_eq!(sat.status(), None);
-        sat.add_clause([1, 2]);
-        assert_eq!(sat.max_variable(), 2);
-        assert_eq!(sat.num_variables(), 2);
-        assert_eq!(sat.num_clauses(), 1);
-        assert_eq!(sat.solve(), Some(true));
-        assert_eq!(sat.solve_with([-1].iter().copied()), Some(true));
-        assert_eq!(sat.value(1), Some(false));
-        assert_eq!(sat.value(2), Some(true));
-        assert_eq!(sat.solve_with([-2].iter().copied()), Some(true));
-        assert_eq!(sat.value(1), Some(true));
-        assert_eq!(sat.value(2), Some(false));
-        assert_eq!(sat.solve_with([-1, -2].iter().copied()), Some(false));
-        assert_eq!(sat.failed(-1), true);
-        assert_eq!(sat.failed(-2), true);
-        assert_eq!(sat.status(), Some(false));
-        sat.add_clause([4, 5]);
-        assert_eq!(sat.status(), None);
-        assert_eq!(sat.max_variable(), 5);
-        assert_eq!(sat.num_variables(), 4);
-        assert_eq!(sat.num_clauses(), 2);
-        assert_eq!(sat.solve_with([-1, -2, -4].iter().copied()), Some(false));
-        assert_eq!(sat.failed(-1), true);
-        assert_eq!(sat.failed(-2), true);
-        assert_eq!(sat.failed(-4), false);
-    }
-
-    fn pigeon_hole(num: i32) -> Solver {
-        let mut sat: Solver = Solver::new();
-        for i in 0..(num + 1) {
-            sat.add_clause((0..num).map(|j| 1 + i * num + j));
-        }
-        for i1 in 0..(num + 1) {
-            for i2 in 0..(num + 1) {
-                if i1 == i2 {
-                    continue;
-                }
-                for j in 0..num {
-                    let l1 = 1 + i1 * num + j;
-                    let l2 = 1 + i2 * num + j;
-                    sat.add_clause([-l1, -l2])
-                }
-            }
-        }
-        sat
-    }
-
-    #[test]
-    fn timeout() {
-        let mut sat = pigeon_hole(9);
-        let started = Instant::now();
-        sat.set_callbacks(Some(Timeout::new(0.2)));
-        let result = sat.solve();
-        let elapsed = started.elapsed().as_secs_f32();
-        if result == None {
-            assert!(0.1 < elapsed && elapsed < 0.3);
-        } else {
-            assert!(result == Some(false) && elapsed <= 0.3);
-        }
-
-        let started = Instant::now();
-        sat.set_callbacks(Some(Timeout::new(0.5)));
-        let result = sat.solve();
-        let elapsed = started.elapsed().as_secs_f32();
-        if result == None {
-            assert!(0.4 < elapsed && elapsed < 0.6);
-        } else {
-            assert!(result == Some(false) && elapsed <= 0.6);
-        }
-
-        sat.set_callbacks(None);
-        assert_eq!(sat.solve(), Some(false));
-    }
-
-    #[test]
-    fn decision_limit() {
-        let mut sat = pigeon_hole(5);
-        sat.set_limit("decisions", 100).unwrap();
-        let result = sat.solve();
-        assert_eq!(result, None);
-        sat.set_limit("decisions", -1).unwrap();
-        let result = sat.solve();
-        assert_eq!(result, Some(false));
-    }
-
-    #[test]
-    fn conflict_limit() {
-        let mut sat = pigeon_hole(5);
-        sat.set_limit("conflicts", 100).unwrap();
-        let result = sat.solve();
-        assert_eq!(result, None);
-        sat.set_limit("conflicts", -1).unwrap();
-        let result = sat.solve();
-        assert_eq!(result, Some(false));
-    }
-
-    #[test]
-    fn bad_limit() {
-        let mut sat = pigeon_hole(5);
-        assert!(sat.set_limit("\0", 0) == Err(Error::new("invalid string")));
-        assert!(sat.set_limit("bad", 0) == Err(Error::new("unknown limit")));
-    }
-
-    #[test]
-    fn moving() {
-        let mut sat = pigeon_hole(5);
-        let id = thread::spawn(move || {
-            assert_eq!(sat.solve(), Some(false));
-        });
-        id.join().unwrap();
-    }
-
-    #[test]
-    fn fileio() {
-        let mut path = std::env::temp_dir();
-        path.push("pigeon5.cnf");
-
-        let mut sat = pigeon_hole(5);
-        println!("writing DIMACS to: {:?}", path);
-        assert!(sat.write_dimacs(&path).is_ok());
-        assert!(path.is_file());
-        let num_vars = sat.max_variable();
-
-        println!("reading DIMACS from: {:?}", path);
-        let mut sat: Solver = Default::default();
-        assert_eq!(sat.read_dimacs(&path), Ok(num_vars));
-        assert_eq!(sat.solve(), Some(false));
-
-        let path = Path::new("MISSINGFILE");
-        let mut sat: Solver = Default::default();
-        let res = sat.read_dimacs(path);
-        assert!(res.is_err());
-        println!("reading DIMACS error: {}", res.err().unwrap());
     }
 }

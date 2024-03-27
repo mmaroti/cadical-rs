@@ -5,11 +5,11 @@ version = "0.1.14"
 license = "MIT"
 authors = ["Miklos Maroti <mmaroti@gmail.com>"]
 edition = "2018"
-repository = "https://github.com/mmaroti/cadical-rs/"
+repository = "https://github.com/sirandreww/cadical-rs.git"
 keywords = ["SAT", "solver", "logic", "satisfiability", "minisat"]
 categories = ["mathematics", "science"]
 readme = "README.md"
-links = "ccadical"
+links = "cadical"
 exclude = ["cadical/src/makefile", "cadical/scripts", "cadical/test"]
 
 [build-dependencies]
