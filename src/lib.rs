@@ -495,6 +495,7 @@ pub trait Callbacks {
 }
 
 /// Callbacks implementing a simple timeout.
+#[derive(Clone)]
 pub struct Timeout {
     pub started: Instant,
     pub timeout: f32,
