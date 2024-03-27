@@ -78,7 +78,7 @@ extern "C" {
 /// assert_eq!(sat.solve(), Some(true));
 /// assert_eq!(sat.value(2), Some(true));
 /// ```
-
+#[derive(Clone)]
 pub struct Solver<C: Callbacks = Timeout> {
     ptr: *mut c_void,
     cbs: Option<Box<C>>,
@@ -495,6 +495,7 @@ pub trait Callbacks {
 }
 
 /// Callbacks implementing a simple timeout.
+#[derive(Clone)]
 pub struct Timeout {
     pub started: Instant,
     pub timeout: f32,
