@@ -66,7 +66,6 @@ extern "C" {
 /// assert_eq!(sat.solve(), Some(true));
 /// assert_eq!(sat.value(2), Some(true));
 /// ```
-
 pub struct Solver<C: Callbacks = Timeout> {
     ptr: *mut c_void,
     cbs: Option<Box<C>>,
@@ -111,7 +110,7 @@ impl<C: Callbacks> Solver<C> {
         I: IntoIterator<Item = i32>,
     {
         for lit in clause {
-            debug_assert!(lit != 0 && lit != std::i32::MIN);
+            debug_assert!(lit != 0 && lit != i32::MIN);
             unsafe { ccadical_add(self.ptr, lit) };
         }
         unsafe { ccadical_add(self.ptr, 0) };
@@ -143,7 +142,7 @@ impl<C: Callbacks> Solver<C> {
         I: Iterator<Item = i32>,
     {
         for lit in assumptions {
-            debug_assert!(lit != 0 && lit != std::i32::MIN);
+            debug_assert!(lit != 0 && lit != i32::MIN);
             unsafe { ccadical_assume(self.ptr, lit) };
         }
         self.solve()
@@ -171,7 +170,7 @@ impl<C: Callbacks> Solver<C> {
     #[inline]
     pub fn value(&self, lit: i32) -> Option<bool> {
         debug_assert!(self.status() == Some(true));
-        debug_assert!(lit != 0 && lit != std::i32::MIN);
+        debug_assert!(lit != 0 && lit != i32::MIN);
         let val = unsafe { ccadical_val(self.ptr, lit) };
         if val == lit {
             Some(true)
@@ -188,7 +187,7 @@ impl<C: Callbacks> Solver<C> {
     #[inline]
     pub fn failed(&self, lit: i32) -> bool {
         debug_assert!(self.status() == Some(false));
-        debug_assert!(lit != 0 && lit != std::i32::MIN);
+        debug_assert!(lit != 0 && lit != i32::MIN);
         let val = unsafe { ccadical_failed(self.ptr, lit) };
         val == 1
     }
