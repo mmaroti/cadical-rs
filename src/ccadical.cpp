@@ -2,7 +2,6 @@
 
 extern "C"
 {
-
   int ccadical_status(CCaDiCaL *wrapper)
   {
     return ((Wrapper *)wrapper)->solver->status();

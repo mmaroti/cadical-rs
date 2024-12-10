@@ -7,11 +7,12 @@
 //! overall place. It was written by Armin Biere, and it is available under the
 //! MIT license.
 
+use std::cell::Cell;
 use std::ffi::{CStr, CString};
 use std::mem::ManuallyDrop;
 use std::os::raw::{c_char, c_int, c_void};
 use std::path::Path;
-use std::ptr::null_mut;
+use std::ptr::null;
 use std::time::Instant;
 use std::{fmt, slice};
 
@@ -32,14 +33,14 @@ extern "C" {
     fn ccadical_failed(ptr: *mut c_void, lit: c_int) -> c_int;
     fn ccadical_set_terminate(
         ptr: *mut c_void,
-        data: *mut c_void,
-        cbs: Option<extern "C" fn(*mut c_void) -> c_int>,
+        data: *const c_void,
+        cbs: Option<extern "C" fn(*const c_void) -> c_int>,
     );
     fn ccadical_set_learn(
         ptr: *mut c_void,
-        data: *mut c_void,
+        data: *const c_void,
         max_len: c_int,
-        cbs: Option<extern "C" fn(*mut c_void, *const c_int)>,
+        cbs: Option<extern "C" fn(*const c_void, *const c_int)>,
     );
     fn ccadical_status(ptr: *mut c_void) -> c_int;
     fn ccadical_vars(ptr: *mut c_void) -> c_int;
@@ -74,14 +75,17 @@ extern "C" {
 /// ```
 pub struct Solver<C: Callbacks = Timeout> {
     ptr: *mut c_void,
-    cbs: Option<Box<C>>,
+    cbs: Cell<Option<Box<C>>>,
 }
 
 impl<C: Callbacks> Solver<C> {
     /// Constructs a new solver instance.
     pub fn new() -> Self {
         let ptr = unsafe { ccadical_init() };
-        Self { ptr, cbs: None }
+        Self {
+            ptr,
+            cbs: Cell::new(None),
+        }
     }
 
     /// Constructs a new solver with one of the following pre-defined
@@ -127,8 +131,10 @@ impl<C: Callbacks> Solver<C> {
     /// unsatisfiable, then `Some(false)` is returned. If the solver runs out
     /// of resources or was terminated, then `None` is returned.
     pub fn solve(&mut self) -> Option<bool> {
-        if let Some(cbs) = &mut self.cbs {
-            cbs.as_mut().started();
+        let cbs = self.cbs.replace(None);
+        if let Some(mut cbs) = cbs {
+            cbs.started();
+            self.cbs.set(Some(cbs));
         }
 
         let r = unsafe { ccadical_solve(self.ptr) };
@@ -262,35 +268,33 @@ impl<C: Callbacks> Solver<C> {
     /// ```
     pub fn set_callbacks(&mut self, cbs: Option<C>) {
         if let Some(cbs) = cbs {
-            if let Some(data) = &mut self.cbs {
-                *data.as_mut() = cbs;
-            } else {
-                self.cbs = Some(Box::new(cbs));
-            }
-            let data = self.cbs.as_mut().unwrap();
-            let max_length = data.max_length();
-            let data = data.as_mut() as *mut C as *mut c_void;
+            let max_length = cbs.max_length();
+            self.cbs.set(Some(Box::new(cbs)));
+            let data = &self.cbs as *const Cell<Option<Box<C>>> as *const c_void;
             unsafe {
                 ccadical_set_terminate(self.ptr, data, Some(Self::terminate_cb));
                 ccadical_set_learn(self.ptr, data, max_length, Some(Self::learn_cb));
             }
         } else {
-            self.cbs = None;
-            let data = null_mut() as *mut c_void;
+            self.cbs.set(None);
             unsafe {
-                ccadical_set_terminate(self.ptr, data, None);
-                ccadical_set_learn(self.ptr, data, 0, None);
+                ccadical_set_terminate(self.ptr, null(), None);
+                ccadical_set_learn(self.ptr, null(), 0, None);
             }
         }
     }
 
-    extern "C" fn terminate_cb(data: *mut c_void) -> c_int {
+    extern "C" fn terminate_cb(data: *const c_void) -> c_int {
         debug_assert!(!data.is_null());
-        let cbs = unsafe { &mut *(data as *mut C) };
-        cbs.terminate() as c_int
+
+        let cell = unsafe { &*(data as *const Cell<Option<Box<C>>>) };
+        let mut cbs = cell.replace(None).unwrap();
+        let ret = cbs.terminate();
+        cell.set(Some(cbs));
+        ret as c_int
     }
 
-    extern "C" fn learn_cb(data: *mut c_void, clause: *const c_int) {
+    extern "C" fn learn_cb(data: *const c_void, clause: *const c_int) {
         debug_assert!(!data.is_null() && !clause.is_null());
 
         let mut len: isize = 0;
@@ -300,13 +304,15 @@ impl<C: Callbacks> Solver<C> {
         let clause = unsafe { slice::from_raw_parts(clause, len as usize) };
         let clause = ManuallyDrop::new(clause);
 
-        let cbs = unsafe { &mut *(data as *mut C) };
+        let cell = unsafe { &*(data as *const Cell<Option<Box<C>>>) };
+        let mut cbs = cell.replace(None).unwrap();
         cbs.learn(&clause);
+        cell.set(Some(cbs));
     }
 
     /// Returns a mutable reference to the callbacks.
     pub fn get_callbacks(&mut self) -> Option<&mut C> {
-        self.cbs.as_mut().map(|a| a.as_mut())
+        self.cbs.get_mut().as_deref_mut()
     }
 
     /// Writes the problem in DIMACS format to the given file.

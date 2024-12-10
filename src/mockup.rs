@@ -20,8 +20,8 @@ struct Mockup {
     conflicts: i32,
     decisions: i32,
     status: i32,
-    terminate_data: *mut c_void,
-    terminate_cbs: Option<extern "C" fn(*mut c_void) -> c_int>,
+    terminate_data: *const c_void,
+    terminate_cbs: Option<extern "C" fn(*const c_void) -> c_int>,
 }
 
 impl Mockup {
@@ -82,9 +82,13 @@ pub unsafe fn ccadical_solve(ptr: *mut c_void) -> c_int {
     let mockup = &mut *(ptr as *mut Mockup);
 
     if let Some(cbs) = mockup.terminate_cbs {
-        // let val = cbs(mockup.terminate_data);
-        // println!("{}", val);
-        return 0;
+        loop {
+            std::thread::sleep(std::time::Duration::from_millis(1));
+            let val = cbs(mockup.terminate_data);
+            if val != 0 {
+                return 0;
+            }
+        }
     }
 
     mockup.status = if mockup.clauses == 0 || mockup.clauses == 2 {
@@ -111,8 +115,8 @@ pub unsafe fn ccadical_failed(ptr: *mut c_void, lit: c_int) -> c_int {
 
 pub unsafe fn ccadical_set_terminate(
     ptr: *mut c_void,
-    data: *mut c_void,
-    cbs: Option<extern "C" fn(*mut c_void) -> c_int>,
+    data: *const c_void,
+    cbs: Option<extern "C" fn(*const c_void) -> c_int>,
 ) {
     let mockup = &mut *(ptr as *mut Mockup);
     mockup.terminate_data = data;
@@ -121,9 +125,9 @@ pub unsafe fn ccadical_set_terminate(
 
 pub unsafe fn ccadical_set_learn(
     ptr: *mut c_void,
-    data: *mut c_void,
+    data: *const c_void,
     max_len: c_int,
-    cbs: Option<extern "C" fn(*mut c_void, *const c_int)>,
+    cbs: Option<extern "C" fn(*const c_void, *const c_int)>,
 ) {
 }
 
