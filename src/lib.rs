@@ -15,6 +15,12 @@ use std::ptr::null_mut;
 use std::time::Instant;
 use std::{fmt, slice};
 
+#[cfg(miri)]
+mod mockup;
+#[cfg(miri)]
+use mockup::*;
+
+#[cfg(not(miri))]
 extern "C" {
     fn ccadical_signature() -> *const c_char;
     fn ccadical_init() -> *mut c_void;
@@ -448,6 +454,7 @@ mod tests {
     use std::thread;
 
     #[test]
+    #[cfg(not(miri))]
     fn solver() {
         let mut sat: Solver = Solver::new();
         assert!(sat.signature().starts_with("cadical-"));
@@ -564,6 +571,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(miri))]
     fn fileio() {
         let mut path = std::env::temp_dir();
         path.push("pigeon5.cnf");
@@ -589,10 +597,10 @@ mod tests {
     #[test]
     fn test_reserve() {
         let mut s: Solver = Default::default();
-        assert!(s.solve().unwrap());
+        assert_eq!(s.solve(), Some(true));
         assert_eq!(s.max_variable(), 0);
         s.reserve(2);
-        assert!(s.solve().unwrap());
+        assert_eq!(s.solve(), Some(true));
         assert_eq!(s.max_variable(), 2);
     }
 }
