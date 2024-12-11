@@ -1,5 +1,9 @@
 #include "../cadical/src/ccadical.cpp"
 
+// This files converts some of the C++ interface of cadical to C.
+// These functions are not available in the C interface of cadical.
+// The C interface that cadical provides is in: cadical/src/ccadical.h
+
 extern "C"
 {
   int ccadical_status(CCaDiCaL *wrapper)

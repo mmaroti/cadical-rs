@@ -62,7 +62,7 @@ extern "C" {
     fn ccadical_reserve(ptr: *mut c_void, min_max_var: c_int);
 }
 
-/// The CaDiCaL incremental SAT solver. The literals are unwrapped positive
+/// The `CaDiCaL` incremental SAT solver. The literals are unwrapped positive
 /// and negative integers, exactly as in the DIMACS format. The common IPASIR
 /// operations are presented in a safe Rust interface.
 /// # Examples
@@ -163,7 +163,7 @@ impl<C: Callbacks> Solver<C> {
     /// assumptions.
     pub fn solve_with<I>(&mut self, assumptions: I) -> Option<bool>
     where
-        I: Iterator<Item = i32>,
+        I: IntoIterator<Item = i32>,
     {
         for lit in assumptions {
             debug_assert!(lit != 0 && lit != i32::MIN);
@@ -196,9 +196,9 @@ impl<C: Callbacks> Solver<C> {
         debug_assert!(self.status() == Some(true));
         debug_assert!(lit != 0 && lit != i32::MIN);
         let val = unsafe { ccadical_val(self.ptr, lit) };
-        if val == lit {
+        if val == lit.abs() {
             Some(true)
-        } else if val == -lit {
+        } else if val == -lit.abs() {
             Some(false)
         } else {
             None
@@ -382,8 +382,8 @@ impl<C: Callbacks> Drop for Solver<C> {
     }
 }
 
-/// CaDiCaL does not use thread local variables, so it is possible to
-/// move it between threads. However it cannot be used queried concurrently
+/// `CaDiCaL`` does not use thread local variables, so it is possible to
+/// move it between threads. However it cannot be used concurrently
 /// (for example getting the value from multiple threads at once), so we
 /// do not implement `Sync`.
 unsafe impl<C: Callbacks + Send> Send for Solver<C> {}
@@ -441,8 +441,10 @@ impl Callbacks for Timeout {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+unsafe impl Send for Timeout {}
+
 /// Error type for configuration and DIMACS reading and writing errors.
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Error {
     pub msg: String,
 }
@@ -479,7 +481,9 @@ mod tests {
         assert_eq!(sat.solve(), Some(true));
         assert_eq!(sat.solve_with([-1].iter().copied()), Some(true));
         assert_eq!(sat.value(1), Some(false));
+        assert_eq!(sat.value(-1), Some(true));
         assert_eq!(sat.value(2), Some(true));
+        assert_eq!(sat.value(-2), Some(false));
         assert_eq!(sat.solve_with([-2].iter().copied()), Some(true));
         assert_eq!(sat.value(1), Some(true));
         assert_eq!(sat.value(2), Some(false));

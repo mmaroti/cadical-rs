@@ -1,6 +1,6 @@
 CaDiCaL SAT solver
 ==================
-[![Build Status](https://app.travis-ci.com/mmaroti/cadical-rs.svg?branch=master)](https://app.travis-ci.com/github/mmaroti/cadical-rs)
+[![Build Status](https://github.com/mmaroti/cadical-rs/actions/workflows/rust.yml/badge.svg)](https://github.com/mmaroti/cadical-rs/actions)
 [![Crate](https://img.shields.io/crates/v/cadical)](https://crates.io/crates/cadical)
 [![Documentation](https://docs.rs/cadical/badge.svg)](https://docs.rs/cadical)
 [![GitHub](https://img.shields.io/github/license/mmaroti/cadical-rs)](LICENSE)
@@ -28,5 +28,5 @@ assert_eq!(sat.value(2), Some(true));
 ```
 
 The C++ library is build with assertions disabled and with optimization level
-3 by default. C++ assertions are enabled only when cargo is building a debug 
+3 by default. C++ assertions are enabled only when cargo is building a debug
 version and the `cpp-debug` feature of the library is enabled.

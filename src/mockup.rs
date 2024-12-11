@@ -104,6 +104,8 @@ pub unsafe fn ccadical_solve(ptr: *mut c_void) -> c_int {
 pub unsafe fn ccadical_val(ptr: *mut c_void, lit: c_int) -> c_int {
     if lit == 2 {
         2
+    } else if lit == -2 {
+        -2
     } else {
         0
     }
@@ -177,12 +179,12 @@ pub unsafe fn ccadical_limit2(ptr: *mut c_void, name: *const c_char, limit: c_in
     let name = CStr::from_ptr(name).to_str().unwrap();
     if name == "conflicts" {
         mockup.conflicts = limit;
-        return 1;
+        1
     } else if name == "decisions" {
         mockup.decisions = limit;
-        return 1;
+        1
     } else {
-        return 0;
+        0
     }
 }
 
