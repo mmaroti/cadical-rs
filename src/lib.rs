@@ -1,4 +1,4 @@
-//! This is a stand alone crate that contains both the C++ source code of the
+//! This is a stand-alone crate that contains both the C++ source code of the
 //! CaDiCaL incremental SAT solver together with its Rust binding. The C++
 //! files are compiled and statically linked during the build process. This
 //! crate works on Linux, Apple OSX, Windows, Android, iOS, Raspberry Pi,
@@ -62,7 +62,7 @@ extern "C" {
     fn ccadical_reserve(ptr: *mut c_void, min_max_var: c_int);
 }
 
-/// The `CaDiCaL` incremental SAT solver. The literals are unwrapped positive
+/// The CaDiCaL incremental SAT solver. The literals are unwrapped positive
 /// and negative integers, exactly as in the DIMACS format. The common IPASIR
 /// operations are presented in a safe Rust interface.
 /// # Examples
@@ -396,7 +396,7 @@ impl<C: Callbacks> Drop for Solver<C> {
     }
 }
 
-/// `CaDiCaL`` does not use thread local variables, so it is possible to
+/// CaDiCaL does not use thread local variables, so it is possible to
 /// move it between threads. However it cannot be used concurrently
 /// (for example getting the value from multiple threads at once), so we
 /// do not implement `Sync`.
@@ -415,7 +415,7 @@ pub trait Callbacks {
     }
 
     /// Returns the maximum length of clauses to be passed to `learn`. This
-    /// methods will be called only once when `set_callbacks` is called.
+    /// method will be called once at the start of each `solve` call.
     #[inline(always)]
     fn max_length(&self) -> i32 {
         0

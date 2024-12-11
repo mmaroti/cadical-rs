@@ -1,20 +1,13 @@
-//! This is a stand alone crate that contains both the C++ source code of the
-//! CaDiCaL incremental SAT solver together with its Rust binding. The C++
-//! files are compiled and statically linked during the build process. This
-//! crate works on Linux, Apple OSX, Windows, Android, iOS, Raspberry Pi,
-//! NetBSD and FreeBSD.
-//! CaDiCaL won first place in the SAT track of the SAT Race 2019 and second
-//! overall place. It was written by Armin Biere, and it is available under the
-//! MIT license.
+//! This is a mockup implementation of the solver to allow testing the memory
+//! safety of the crate with `cargo +nightly miri test`.
 
-#![allow(unused)]
+#![allow(unused_variables)]
 
-use std::cmp::max;
 use std::ffi::CStr;
 use std::os::raw::{c_char, c_int, c_void};
 use std::ptr::{null, null_mut};
 
-struct Mockup {
+pub struct Mockup {
     vars: Vec<bool>,
     clauses: i32,
     conflicts: i32,
@@ -58,7 +51,7 @@ pub unsafe fn ccadical_init() -> *mut c_void {
 
 pub unsafe fn ccadical_release(ptr: *mut c_void) {
     println!("release");
-    let mut mockup = Box::from_raw(ptr as *mut Mockup);
+    let mockup = Box::from_raw(ptr as *mut Mockup);
     drop(mockup);
 }
 

@@ -5,7 +5,7 @@ CaDiCaL SAT solver
 [![Documentation](https://docs.rs/cadical/badge.svg)](https://docs.rs/cadical)
 [![GitHub](https://img.shields.io/github/license/mmaroti/cadical-rs)](LICENSE)
 
-This is a stand alone crate that contains both the C++ source code of the
+This is a stand-alone crate that contains both the C++ source code of the
 CaDiCaL incremental SAT solver together with its Rust binding. The C++
 files are compiled and statically linked during the build process. This
 crate works on Linux, Apple OSX, Windows, Android, iOS, Raspberry Pi,
