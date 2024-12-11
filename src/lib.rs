@@ -134,13 +134,25 @@ impl<C: Callbacks> Solver<C> {
         let cbs = self.cbs.replace(None);
         if let Some(mut cbs) = cbs {
             cbs.started();
+            let max_length = cbs.max_length();
             self.cbs.set(Some(cbs));
+
+            let data = &self.cbs as *const Cell<Option<Box<C>>> as *const c_void;
+            unsafe {
+                ccadical_set_terminate(self.ptr, data, Some(Self::terminate_cb));
+                ccadical_set_learn(self.ptr, data, max_length, Some(Self::learn_cb));
+            }
+        } else {
+            unsafe {
+                ccadical_set_terminate(self.ptr, null(), None);
+                ccadical_set_learn(self.ptr, null(), 0, None);
+            }
         }
 
-        let r = unsafe { ccadical_solve(self.ptr) };
-        if r == 10 {
+        let ret = unsafe { ccadical_solve(self.ptr) };
+        if ret == 10 {
             Some(true)
-        } else if r == 20 {
+        } else if ret == 20 {
             Some(false)
         } else {
             None
@@ -268,35 +280,27 @@ impl<C: Callbacks> Solver<C> {
     /// ```
     pub fn set_callbacks(&mut self, cbs: Option<C>) {
         if let Some(cbs) = cbs {
-            let max_length = cbs.max_length();
             self.cbs.set(Some(Box::new(cbs)));
-            let data = &self.cbs as *const Cell<Option<Box<C>>> as *const c_void;
-            unsafe {
-                ccadical_set_terminate(self.ptr, data, Some(Self::terminate_cb));
-                ccadical_set_learn(self.ptr, data, max_length, Some(Self::learn_cb));
-            }
         } else {
             self.cbs.set(None);
-            unsafe {
-                ccadical_set_terminate(self.ptr, null(), None);
-                ccadical_set_learn(self.ptr, null(), 0, None);
-            }
         }
     }
 
     extern "C" fn terminate_cb(data: *const c_void) -> c_int {
         debug_assert!(!data.is_null());
+        let data = unsafe { &*(data as *const Cell<Option<Box<C>>>) };
 
-        let cell = unsafe { &*(data as *const Cell<Option<Box<C>>>) };
-        let mut cbs = cell.replace(None).unwrap();
-        let ret = cbs.terminate();
-        cell.set(Some(cbs));
-        ret as c_int
+        if let Some(mut cbs) = data.replace(None) {
+            let ret = cbs.terminate();
+            data.set(Some(cbs));
+            ret as c_int
+        } else {
+            0
+        }
     }
 
     extern "C" fn learn_cb(data: *const c_void, clause: *const c_int) {
-        debug_assert!(!data.is_null() && !clause.is_null());
-
+        debug_assert!(!clause.is_null());
         let mut len: isize = 0;
         while unsafe { clause.offset(len).read() } != 0 {
             len += 1;
@@ -304,10 +308,13 @@ impl<C: Callbacks> Solver<C> {
         let clause = unsafe { slice::from_raw_parts(clause, len as usize) };
         let clause = ManuallyDrop::new(clause);
 
-        let cell = unsafe { &*(data as *const Cell<Option<Box<C>>>) };
-        let mut cbs = cell.replace(None).unwrap();
-        cbs.learn(&clause);
-        cell.set(Some(cbs));
+        debug_assert!(!data.is_null());
+        let data = unsafe { &*(data as *const Cell<Option<Box<C>>>) };
+
+        if let Some(mut cbs) = data.replace(None) {
+            cbs.learn(&clause);
+            data.set(Some(cbs));
+        }
     }
 
     /// Returns a mutable reference to the callbacks.
