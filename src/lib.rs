@@ -75,17 +75,14 @@ extern "C" {
 /// ```
 pub struct Solver<C: Callbacks = Timeout> {
     ptr: *mut c_void,
-    cbs: Cell<Option<Box<C>>>,
+    cbs: Option<Box<C>>,
 }
 
 impl<C: Callbacks> Solver<C> {
     /// Constructs a new solver instance.
     pub fn new() -> Self {
         let ptr = unsafe { ccadical_init() };
-        Self {
-            ptr,
-            cbs: Cell::new(None),
-        }
+        Self { ptr, cbs: None }
     }
 
     /// Constructs a new solver with one of the following pre-defined
@@ -131,13 +128,19 @@ impl<C: Callbacks> Solver<C> {
     /// unsatisfiable, then `Some(false)` is returned. If the solver runs out
     /// of resources or was terminated, then `None` is returned.
     pub fn solve(&mut self) -> Option<bool> {
-        let cbs = self.cbs.replace(None);
-        if let Some(mut cbs) = cbs {
+        // We need a cell (interior mutability) becase we need multiple pointers
+        // to the callback object, one stored here in the solver, the others in
+        // the CaDiCal library. Since it is put behind a cell we can access it
+        // mutabily when needed (from the same thread).
+        let data = Cell::new(None);
+
+        // put the cbs pointer into the cell
+        if let Some(mut cbs) = self.cbs.take() {
             cbs.started();
             let max_length = cbs.max_length();
-            self.cbs.set(Some(cbs));
 
-            let data = &self.cbs as *const Cell<Option<Box<C>>> as *const c_void;
+            data.set(Some(cbs));
+            let data = &data as *const Cell<Option<Box<C>>> as *const c_void;
             unsafe {
                 ccadical_set_terminate(self.ptr, data, Some(Self::terminate_cb));
                 ccadical_set_learn(self.ptr, data, max_length, Some(Self::learn_cb));
@@ -150,6 +153,17 @@ impl<C: Callbacks> Solver<C> {
         }
 
         let ret = unsafe { ccadical_solve(self.ptr) };
+
+        // move the cbs pointer back
+        if let Some(cbs) = data.replace(None) {
+            self.cbs = Some(cbs);
+
+            unsafe {
+                ccadical_set_terminate(self.ptr, null(), None);
+                ccadical_set_learn(self.ptr, null(), 0, None);
+            }
+        }
+
         if ret == 10 {
             Some(true)
         } else if ret == 20 {
@@ -280,9 +294,9 @@ impl<C: Callbacks> Solver<C> {
     /// ```
     pub fn set_callbacks(&mut self, cbs: Option<C>) {
         if let Some(cbs) = cbs {
-            self.cbs.set(Some(Box::new(cbs)));
+            self.cbs = Some(Box::new(cbs));
         } else {
-            self.cbs.set(None);
+            self.cbs = None;
         }
     }
 
@@ -319,7 +333,7 @@ impl<C: Callbacks> Solver<C> {
 
     /// Returns a mutable reference to the callbacks.
     pub fn get_callbacks(&mut self) -> Option<&mut C> {
-        self.cbs.get_mut().as_deref_mut()
+        self.cbs.as_deref_mut()
     }
 
     /// Writes the problem in DIMACS format to the given file.
@@ -441,8 +455,6 @@ impl Callbacks for Timeout {
     }
 }
 
-unsafe impl Send for Timeout {}
-
 /// Error type for configuration and DIMACS reading and writing errors.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Error {
@@ -528,6 +540,7 @@ mod tests {
         let started = Instant::now();
         sat.set_callbacks(Some(Timeout::new(0.2)));
         let result = sat.solve();
+        assert_eq!(sat.get_callbacks().unwrap().timeout, 0.2);
         let elapsed = started.elapsed().as_secs_f32();
         if result == None {
             assert!(0.1 < elapsed && elapsed < 0.3);
