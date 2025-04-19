@@ -265,15 +265,15 @@ impl<C: Callbacks> Solver<C> {
     /// and reset to their default values, which disables them.
     /// The following limits are supported:
     /// * `preprocessing`: the number of preprocessing rounds to be performed
-    ///    during the search (defaults to `0`).
+    ///   during the search (defaults to `0`).
     /// * `localsearch`: the number of local search rounds to be performed
-    ///    during the search (defaults to `0`).
+    ///   during the search (defaults to `0`).
     /// * `terminate`: this value is regularly decremented and aborts the
-    ///    solver when it reaches zero (defaults to `0`).
+    ///   solver when it reaches zero (defaults to `0`).
     /// * `conflicts`: decremented when a conflict is detected
-    ///    and aborts the solver when it becomes negative (defaults to `-1`).
+    ///   and aborts the solver when it becomes negative (defaults to `-1`).
     /// * `decisions`: decremented when a decision is made
-    ///    and aborts the solver when it becomes negative (defaults to `-1`).
+    ///   and aborts the solver when it becomes negative (defaults to `-1`).
     pub fn set_limit(&mut self, name: &str, limit: i32) -> Result<(), Error> {
         let name = CString::new(name).map_err(|_| Error::new("invalid string"))?;
         let valid = unsafe { ccadical_limit2(self.ptr, name.as_ptr(), limit) };
