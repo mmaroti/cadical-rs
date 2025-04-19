@@ -15,7 +15,8 @@ jobs:
     strategy:
       matrix:
         platform:
-          - runner: ubuntu-24.latest
+          - runner: ubuntu-24.04
+          - runner: ubuntu-22.04
           - runner: windows-latest
           - runner: macos-13
           - runner: macos-14
