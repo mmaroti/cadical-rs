@@ -2,7 +2,7 @@ fn main() -> std::io::Result<()> {
     let mut build = cc::Build::new();
     build
         .cpp(true)
-        .flag_if_supported("-std=c++11")
+        .std("c++17")
         .warnings(true)
         .define("NBUILD", None)
         .define("NUNLOCKED", None)
@@ -40,7 +40,9 @@ fn main() -> std::io::Result<()> {
     }
 
     if build.get_compiler().is_like_msvc() {
-        build.include(std::path::Path::new("src/msvc"));
+        build
+            .define("__attribute__(X)", "/**/")
+            .include(std::path::Path::new("src/msvc"));
         files.push("src/msvc/resources.cpp".to_string());
         files.push("src/msvc/lookahead.cpp".to_string());
     } else {
