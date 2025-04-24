@@ -3,7 +3,7 @@ fn main() -> std::io::Result<()> {
     build
         .cpp(true)
         .std("c++17")
-        .warnings(true)
+        .warnings(false)
         .define("NBUILD", None)
         .define("NUNLOCKED", None)
         .define("NTRACING", None)
