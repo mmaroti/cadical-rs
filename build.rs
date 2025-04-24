@@ -40,9 +40,7 @@ fn main() -> std::io::Result<()> {
     }
 
     if build.get_compiler().is_like_msvc() {
-        build
-            .define("__attribute__(X)", "/**/")
-            .include(std::path::Path::new("src/msvc"));
+        build.include(std::path::Path::new("src/msvc"));
         files.push("src/msvc/resources.cpp".to_string());
         files.push("src/msvc/lookahead.cpp".to_string());
     } else {
