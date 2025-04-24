@@ -24,7 +24,7 @@ fn main() -> std::io::Result<()> {
     }
 
     let excluded = vec![
-        "cadical/src/resources.cpp",
+        // "cadical/src/resources.cpp",
         // "cadical/src/lookahead.cpp",
         "cadical/src/ccadical.cpp",
         "cadical/src/cadical.cpp",
@@ -43,10 +43,10 @@ fn main() -> std::io::Result<()> {
         build
             .include(std::path::Path::new("src/msvc"))
             .define("__WIN32", None);
-        files.push("src/msvc/resources.cpp".to_string());
+        // files.push("src/msvc/resources.cpp".to_string());
         // files.push("src/msvc/lookahead.cpp".to_string());
     } else {
-        files.push("cadical/src/resources.cpp".to_string());
+        // files.push("cadical/src/resources.cpp".to_string());
         // files.push("cadical/src/lookahead.cpp".to_string());
     }
 
