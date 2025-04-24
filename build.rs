@@ -40,9 +40,8 @@ fn main() -> std::io::Result<()> {
     }
 
     if build.get_compiler().is_like_msvc() {
-        build
-            .include(std::path::Path::new("src/msvc"))
-            .define("__WIN32", None);
+        // .include(std::path::Path::new("src/msvc"))
+        build.define("__WIN32", None);
         // files.push("src/msvc/resources.cpp".to_string());
         // files.push("src/msvc/lookahead.cpp".to_string());
     } else {
