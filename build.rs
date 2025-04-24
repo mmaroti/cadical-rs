@@ -24,29 +24,18 @@ fn main() -> std::io::Result<()> {
     }
 
     let excluded = vec![
-        // "cadical/src/resources.cpp",
-        // "cadical/src/lookahead.cpp",
         "cadical/src/ccadical.cpp",
         "cadical/src/cadical.cpp",
         "cadical/src/mobical.cpp",
     ];
 
     let mut files = vec!["src/ccadical.cpp".to_string()];
+
     for file in std::fs::read_dir("cadical/src/").unwrap() {
         let file = file.unwrap().path().to_str().unwrap().to_string();
         if file.ends_with(".cpp") && !excluded.contains(&file.as_str()) {
             files.push(file);
         }
-    }
-
-    if build.get_compiler().is_like_msvc() {
-        // .include(std::path::Path::new("src/msvc"))
-        build.define("__WIN32", None);
-        // files.push("src/msvc/resources.cpp".to_string());
-        // files.push("src/msvc/lookahead.cpp".to_string());
-    } else {
-        // files.push("cadical/src/resources.cpp".to_string());
-        // files.push("cadical/src/lookahead.cpp".to_string());
     }
 
     build.files(files.iter());
