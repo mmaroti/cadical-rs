@@ -23,7 +23,7 @@ fn main() -> std::io::Result<()> {
         build.debug(false).opt_level(3).define("NDEBUG", None);
     }
 
-    let excluded = vec![
+    let excluded = [
         "cadical/src/ccadical.cpp",
         "cadical/src/cadical.cpp",
         "cadical/src/mobical.cpp",
