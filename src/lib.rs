@@ -369,8 +369,16 @@ impl<C: Callbacks> Solver<C> {
     ///
     /// This function makes sure that at least 'min_max_var' variables are initialized.
     /// A call to this function sets the solver status to `None`.
+    /// # Examples
+    /// ```
+    /// let mut sat: cadical::Solver = Default::default();
+    /// assert_eq!(sat.max_variable(), 0);
+    /// sat.reserve(2);
+    /// assert_eq!(sat.max_variable(), 2);
+    /// assert_eq!(sat.num_variables(), 0);
+    /// ```
     pub fn reserve(&mut self, min_max_var: i32) {
-        unsafe { ccadical_reserve(self.ptr, min_max_var) }
+        unsafe { ccadical_reserve(self.ptr, min_max_var.abs()) }
     }
 }
 
@@ -434,7 +442,8 @@ pub struct Timeout {
 }
 
 impl Timeout {
-    /// Creates a new timeout structure with the given timeout value.
+    /// Creates a new timeout structure with the given timeout value in
+    /// seconds.
     pub fn new(timeout: f32) -> Self {
         Timeout {
             started: Instant::now(),
@@ -458,14 +467,18 @@ impl Callbacks for Timeout {
 /// Error type for configuration and DIMACS reading and writing errors.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Error {
-    pub msg: String,
+    msg: &'static str,
 }
 
 impl Error {
-    pub fn new(msg: &str) -> Self {
-        Error {
-            msg: msg.to_string(),
-        }
+    /// Creates a new error instance.
+    pub fn new(msg: &'static str) -> Self {
+        Error { msg }
+    }
+
+    /// Returns a reference to the error message.
+    pub fn msg(&self) -> &str {
+        self.msg
     }
 }
 
